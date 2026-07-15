@@ -1,15 +1,18 @@
-"""Unit tests for the keyword retriever and document conversion."""
+"""Unit tests for the keyword and graph retrievers and document conversion."""
 
 from __future__ import annotations
 
 import json
 from pathlib import Path
+from typing import Any
 
 import pytest
 from langchain_core.documents import Document
+from langchain_core.embeddings import Embeddings
+from langchain_core.vectorstores import VectorStore
 
 from langgraph_okf.bundle import OKFBundle
-from langgraph_okf.retriever import OKFRetriever, concept_to_document
+from langgraph_okf.retriever import OKFGraphRetriever, OKFRetriever, concept_to_document
 
 pytestmark = pytest.mark.unit
 
@@ -120,3 +123,176 @@ class TestConversionHelper:
         document = concept_to_document(concept, bundle_root=bundle.root)
         document.metadata["tags"].append("mutated")
         assert "mutated" not in concept.frontmatter.tags
+
+
+class ScriptedVectorStore(VectorStore):
+    """Fake store returning a fixed hit list from ``similarity_search``."""
+
+    def __init__(self, hits: list[Document]) -> None:
+        self.hits = hits
+        self.calls: list[tuple[str, int]] = []
+
+    def similarity_search(self, query: str, k: int = 4, **kwargs: Any) -> list[Document]:
+        self.calls.append((query, k))
+        return self.hits[:k]
+
+    @classmethod
+    def from_texts(
+        cls,
+        texts: list[str],
+        embedding: Embeddings,
+        metadatas: list[dict[str, Any]] | None = None,
+        *,
+        ids: list[str] | None = None,
+        **kwargs: Any,
+    ) -> ScriptedVectorStore:
+        raise NotImplementedError
+
+
+def hit(bundle: OKFBundle, concept_id: str, **overrides: Any) -> Document:
+    """Build a vector hit for a concept, optionally with tampered metadata."""
+    metadata: dict[str, Any] = {"concept_id": concept_id, "bundle_root": str(bundle.root)}
+    metadata.update(overrides)
+    return Document(page_content="stale store copy", metadata=metadata)
+
+
+def graph_retriever(
+    bundle: OKFBundle, hits: list[Document], **fields: Any
+) -> OKFGraphRetriever:
+    return OKFGraphRetriever(bundle=bundle, vector_store=ScriptedVectorStore(hits), **fields)
+
+
+def result_ids(documents: list[Document]) -> list[str]:
+    return [document.metadata["concept_id"] for document in documents]
+
+
+class TestGraphRetrieverEntryHits:
+    def test_entry_hits_keep_vector_store_order(self, bundle: OKFBundle) -> None:
+        hits = [hit(bundle, "concepts/payments"), hit(bundle, "guides/getting-started")]
+        retriever = graph_retriever(bundle, hits, expand_hops=0)
+        assert result_ids(retriever.invoke("q")) == [
+            "concepts/payments",
+            "guides/getting-started",
+        ]
+
+    def test_top_k_is_passed_to_the_vector_store(self, bundle: OKFBundle) -> None:
+        store = ScriptedVectorStore([hit(bundle, "concepts/orders")])
+        OKFGraphRetriever(bundle=bundle, vector_store=store, top_k=3).invoke("payments query")
+        assert store.calls == [("payments query", 3)]
+
+    def test_no_hits_returns_empty_list(self, bundle: OKFBundle) -> None:
+        assert graph_retriever(bundle, []).invoke("q") == []
+
+    def test_malformed_metadata_is_ignored(self, bundle: OKFBundle) -> None:
+        hits = [
+            Document(page_content="no concept id", metadata={"bundle_root": str(bundle.root)}),
+            Document(
+                page_content="non-string concept id",
+                metadata={"concept_id": 42, "bundle_root": str(bundle.root)},
+            ),
+            hit(bundle, "concepts/does-not-exist"),
+            hit(bundle, "concepts/payments"),
+        ]
+        retriever = graph_retriever(bundle, hits, expand_hops=0)
+        assert result_ids(retriever.invoke("q")) == ["concepts/payments"]
+
+    def test_foreign_bundle_hits_are_ignored(self, bundle: OKFBundle) -> None:
+        hits = [
+            hit(bundle, "concepts/payments", bundle_root="/some/other/bundle"),
+            hit(bundle, "concepts/orders"),
+        ]
+        retriever = graph_retriever(bundle, hits, expand_hops=0)
+        assert result_ids(retriever.invoke("q")) == ["concepts/orders"]
+
+    def test_duplicate_entry_hits_are_deduplicated(self, bundle: OKFBundle) -> None:
+        hits = [hit(bundle, "concepts/orders"), hit(bundle, "concepts/orders")]
+        retriever = graph_retriever(bundle, hits, expand_hops=0)
+        assert result_ids(retriever.invoke("q")) == ["concepts/orders"]
+
+
+class TestGraphRetrieverExpansion:
+    def test_defaults(self, bundle: OKFBundle) -> None:
+        retriever = graph_retriever(bundle, [])
+        assert (retriever.top_k, retriever.expand_hops, retriever.expand_direction) == (
+            5,
+            1,
+            "out",
+        )
+
+    def test_zero_hops_returns_only_entry_hits(self, bundle: OKFBundle) -> None:
+        retriever = graph_retriever(bundle, [hit(bundle, "concepts/orders")], expand_hops=0)
+        assert result_ids(retriever.invoke("q")) == ["concepts/orders"]
+
+    def test_one_hop_out_appends_link_targets(self, bundle: OKFBundle) -> None:
+        retriever = graph_retriever(bundle, [hit(bundle, "concepts/customers")])
+        assert result_ids(retriever.invoke("q")) == ["concepts/customers", "concepts/orders"]
+
+    def test_multiple_hops_follow_distance_then_id_order(self, bundle: OKFBundle) -> None:
+        retriever = graph_retriever(
+            bundle, [hit(bundle, "guides/getting-started")], expand_hops=2
+        )
+        assert result_ids(retriever.invoke("q")) == [
+            "guides/getting-started",
+            "concepts/orders",
+            "concepts/customers",
+            "concepts/payments",
+        ]
+
+    def test_direction_in_follows_backlinks(self, bundle: OKFBundle) -> None:
+        retriever = graph_retriever(
+            bundle, [hit(bundle, "concepts/payments")], expand_direction="in"
+        )
+        assert result_ids(retriever.invoke("q")) == ["concepts/payments", "concepts/orders"]
+
+    def test_direction_both_merges_links_and_backlinks(self, bundle: OKFBundle) -> None:
+        retriever = graph_retriever(
+            bundle, [hit(bundle, "concepts/payments")], expand_hops=2, expand_direction="both"
+        )
+        assert result_ids(retriever.invoke("q")) == [
+            "concepts/payments",
+            "concepts/orders",
+            "concepts/customers",
+            "guides/getting-started",
+        ]
+
+    def test_cycles_terminate(self, bundle: OKFBundle) -> None:
+        # customers and orders link to each other; large hop counts stay finite.
+        retriever = graph_retriever(bundle, [hit(bundle, "concepts/customers")], expand_hops=10)
+        results = result_ids(retriever.invoke("q"))
+        assert results == ["concepts/customers", "concepts/orders", "concepts/payments"]
+        assert len(results) == len(set(results))
+
+    def test_expansion_never_repeats_entry_hits(self, bundle: OKFBundle) -> None:
+        hits = [hit(bundle, "concepts/orders"), hit(bundle, "concepts/customers")]
+        retriever = graph_retriever(bundle, hits)
+        assert result_ids(retriever.invoke("q")) == [
+            "concepts/orders",
+            "concepts/customers",
+            "concepts/payments",
+        ]
+
+    @pytest.mark.parametrize(
+        "fields",
+        [{"top_k": 0}, {"expand_hops": -1}, {"expand_direction": "sideways"}],
+    )
+    def test_invalid_parameters_raise_value_error(
+        self, bundle: OKFBundle, fields: dict[str, Any]
+    ) -> None:
+        with pytest.raises(ValueError):
+            graph_retriever(bundle, [], **fields)
+
+
+class TestGraphRetrieverRehydration:
+    def test_documents_are_rehydrated_from_the_bundle(self, bundle: OKFBundle) -> None:
+        stale = hit(bundle, "concepts/orders", content_hash="deadbeef", title="Tampered")
+        document = graph_retriever(bundle, [stale], expand_hops=0).invoke("q")[0]
+        canonical = concept_to_document(bundle.get("concepts/orders"), bundle_root=bundle.root)
+        assert document.page_content == canonical.page_content
+        assert document.metadata == canonical.metadata
+
+    def test_expanded_documents_carry_canonical_metadata(self, bundle: OKFBundle) -> None:
+        documents = graph_retriever(bundle, [hit(bundle, "concepts/customers")]).invoke("q")
+        expanded = documents[1]
+        canonical = concept_to_document(bundle.get("concepts/orders"), bundle_root=bundle.root)
+        assert expanded.metadata == canonical.metadata
+        assert expanded.page_content == canonical.page_content
