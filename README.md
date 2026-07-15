@@ -58,10 +58,22 @@ dependencies — bring the ones you need.
 ## Quick Start
 
 ```python
+import tempfile
 from pathlib import Path
 from okf_agents import OKFBundle
 
-bundle = OKFBundle.load("path/to/my-bundle")
+tmp = Path(tempfile.mkdtemp()) / "concepts"
+tmp.mkdir()
+(tmp / "orders.md").write_text(
+    "---\ntype: table\ntitle: Orders\ntags: [sales]\n---\n"
+    "# Orders\n\nEach order belongs to a [customer](customers.md).\n"
+)
+(tmp / "customers.md").write_text(
+    "---\ntype: table\ntitle: Customers\ntags: [crm]\n---\n"
+    "# Customers\n\nCustomer accounts and contact details.\n"
+)
+
+bundle = OKFBundle.load(tmp.parent)
 print(bundle.concept_count, "concepts loaded")
 
 for concept in bundle.search("customer", top_k=3):
@@ -110,33 +122,46 @@ Pass `vector_store=` to route vague queries to `"vector"`, or
 ### Navigator subgraph
 
 ```python
+import json
+from langchain_core.language_models.fake_chat_models import FakeListChatModel
 from okf_agents import create_okf_navigator
 
+model = FakeListChatModel(
+    responses=[
+        json.dumps({"concept_ids": ["concepts/orders"]}),
+        json.dumps({"sufficient": True}),
+        json.dumps({
+            "answer": "Orders belong to customers.",
+            "citations": ["concepts/orders"],
+        }),
+    ]
+)
 navigator = create_okf_navigator(bundle, model, max_hops=2)
 result = navigator.invoke({"question": "How do orders relate to customers?"})
 print(result["answer"], result["citations"])
 ```
 
 The navigator reads concepts, follows links breadth-first, and produces
-a cited answer — all within hard token/hop budgets. See
+a cited answer — all within hard token/hop budgets. Swap
+`FakeListChatModel` for `ChatAnthropic`, `ChatOpenAI`, or any
+`BaseChatModel` in production. See
 [docs/navigator-and-budgets.md](docs/navigator-and-budgets.md).
 
 ### Graph-aware semantic retrieval
 
-```python
-from okf_agents import OKFGraphRetriever, sync_bundle_to_vector_store
+`sync_bundle_to_vector_store` + `OKFGraphRetriever` work with any
+LangChain `VectorStore` that supports ID-based lookup:
 
-sync_bundle_to_vector_store(bundle, vector_store)
+```text
+sync_bundle_to_vector_store(bundle, vector_store)  # idempotent upsert
 
-graph_retriever = OKFGraphRetriever(
-    bundle=bundle, vector_store=vector_store, top_k=3, expand_hops=1,
-)
-docs = graph_retriever.invoke("order belongs")
+retriever = OKFGraphRetriever(bundle, vector_store, top_k=3, expand_hops=1)
+docs = retriever.invoke("order belongs")
 # → concepts/orders + concepts/customers (reached via the link graph)
 ```
 
-See [docs/vector-stores.md](docs/vector-stores.md) for the full sync
-and store-capability contract.
+See [docs/vector-stores.md](docs/vector-stores.md) for a full working
+example and the store-capability contract.
 
 ## Architecture
 
