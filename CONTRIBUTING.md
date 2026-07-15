@@ -1,14 +1,14 @@
-# Contributing to langgraph-okf
+# Contributing to okf-agents
 
-Thanks for your interest in improving `langgraph-okf`. This project is a
+Thanks for your interest in improving `okf-agents`. This project is a
 young, alpha-stage library, so please open an issue to discuss non-trivial
 changes before investing time in a pull request.
 
 ## Development setup
 
 ```bash
-git clone https://github.com/RonCodes88/langgraph-okf.git
-cd langgraph-okf
+git clone https://github.com/RonCodes88/okf-agents.git
+cd okf-agents
 python -m venv .venv
 source .venv/bin/activate      # Windows: .venv\Scripts\activate
 pip install -e ".[dev]"
@@ -20,7 +20,7 @@ Requires Python 3.11 or newer.
 
 ```bash
 ruff check .                      # lint
-mypy langgraph_okf tests          # strict type checking
+mypy okf_agents tests          # strict type checking
 pytest                            # unit tests + offline integration tests
 pytest --cov                      # with coverage (>= 85% required)
 ```

@@ -35,7 +35,7 @@ from langgraph.graph.state import CompiledStateGraph
 from langgraph.types import Command
 from pydantic import BaseModel, Field, ValidationError
 
-from langgraph_okf.bundle import OKFBundle
+from okf_agents.bundle import OKFBundle
 
 __all__ = ["NavigatorState", "create_okf_navigator"]
 

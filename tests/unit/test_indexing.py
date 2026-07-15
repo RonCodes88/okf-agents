@@ -11,13 +11,13 @@ from langchain_core.documents import Document
 from langchain_core.embeddings import Embeddings
 from langchain_core.vectorstores import VectorStore
 
-from langgraph_okf.bundle import OKFBundle
-from langgraph_okf.indexing import (
+from okf_agents.bundle import OKFBundle
+from okf_agents.indexing import (
     CONTENT_HASH_KEY,
     stable_document_id,
     sync_bundle_to_vector_store,
 )
-from langgraph_okf.retriever import concept_to_document
+from okf_agents.retriever import concept_to_document
 
 pytestmark = pytest.mark.unit
 

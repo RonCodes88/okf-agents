@@ -17,9 +17,9 @@ from pathlib import Path
 from langchain_core.documents import Document
 from langchain_core.vectorstores import VectorStore
 
-from langgraph_okf.bundle import OKFBundle
-from langgraph_okf.models import SyncResult
-from langgraph_okf.retriever import concept_to_document
+from okf_agents.bundle import OKFBundle
+from okf_agents.models import SyncResult
+from okf_agents.retriever import concept_to_document
 
 __all__ = ["stable_document_id", "sync_bundle_to_vector_store"]
 
@@ -27,7 +27,7 @@ CONTENT_HASH_KEY = "content_hash"
 
 # Fixed namespace so stable IDs never collide with user UUIDs and stay
 # identical across processes and machines for the same root + concept.
-_ID_NAMESPACE = uuid.uuid5(uuid.NAMESPACE_URL, "https://okf.md/langgraph-okf/vector-ids")
+_ID_NAMESPACE = uuid.uuid5(uuid.NAMESPACE_URL, "https://okf.md/okf-agents/vector-ids")
 
 _ERROR_MESSAGE_LIMIT = 200
 

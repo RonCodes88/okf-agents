@@ -1,6 +1,6 @@
 # Vector stores, idempotent sync, and graph-aware retrieval
 
-`langgraph-okf` never embeds text itself. It writes plain LangChain
+`okf-agents` never embeds text itself. It writes plain LangChain
 `Document` objects into a `VectorStore` you configure, and that store owns
 its embedding implementation. This page covers what a store needs to
 support, how synchronization stays idempotent across repeated runs, and
@@ -10,7 +10,7 @@ graph.
 ## What `sync_bundle_to_vector_store` requires
 
 ```python
-from langgraph_okf import OKFBundle, sync_bundle_to_vector_store
+from okf_agents import OKFBundle, sync_bundle_to_vector_store
 
 bundle = OKFBundle.load("./my_bundle")
 result = sync_bundle_to_vector_store(bundle, vector_store)
@@ -63,7 +63,7 @@ attempted.
 ## `OKFGraphRetriever`: semantic search plus graph expansion
 
 ```python
-from langgraph_okf import OKFBundle, OKFGraphRetriever
+from okf_agents import OKFBundle, OKFGraphRetriever
 
 retriever = OKFGraphRetriever(
     bundle=bundle,

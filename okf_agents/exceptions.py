@@ -1,4 +1,4 @@
-"""Exception hierarchy for langgraph-okf.
+"""Exception hierarchy for okf-agents.
 
 All package exceptions derive from :class:`OKFError` so callers can catch
 one base type. Validation and lookup exceptions keep their structured
@@ -19,7 +19,7 @@ __all__ = [
 
 
 class OKFError(Exception):
-    """Base class for all langgraph-okf errors."""
+    """Base class for all okf-agents errors."""
 
 
 class BundleNotFoundError(OKFError):

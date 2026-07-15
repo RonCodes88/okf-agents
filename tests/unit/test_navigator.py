@@ -19,8 +19,8 @@ from langchain_core.outputs import ChatGeneration, ChatResult
 from langgraph.graph import END, START, StateGraph
 from pydantic import Field
 
-from langgraph_okf.bundle import OKFBundle
-from langgraph_okf.navigator import NavigatorState, create_okf_navigator
+from okf_agents.bundle import OKFBundle
+from okf_agents.navigator import NavigatorState, create_okf_navigator
 
 pytestmark = pytest.mark.unit
 

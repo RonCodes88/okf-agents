@@ -26,3 +26,4 @@ htmlcov/
 # Local planning docs
 docs/tasks/
 langgraph-okf-spec.md
+okf-agents-spec.md

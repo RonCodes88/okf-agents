@@ -23,11 +23,11 @@ from langchain_core.outputs import ChatGeneration, ChatResult
 from langgraph.graph import END, START, StateGraph
 from pydantic import Field
 
-from langgraph_okf.bundle import OKFBundle
-from langgraph_okf.indexing import sync_bundle_to_vector_store
-from langgraph_okf.navigator import create_okf_navigator
-from langgraph_okf.retriever import OKFGraphRetriever
-from langgraph_okf.router import Route, RouterState, create_okf_router
+from okf_agents.bundle import OKFBundle
+from okf_agents.indexing import sync_bundle_to_vector_store
+from okf_agents.navigator import create_okf_navigator
+from okf_agents.retriever import OKFGraphRetriever
+from okf_agents.router import Route, RouterState, create_okf_router
 from tests.integration.conftest import InProcessVectorStore
 
 pytestmark = pytest.mark.integration

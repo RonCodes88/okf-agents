@@ -1,11 +1,11 @@
-"""Unit tests for langgraph-okf domain models."""
+"""Unit tests for okf-agents domain models."""
 
 from datetime import UTC, datetime
 
 import pytest
 from pydantic import ValidationError
 
-from langgraph_okf.models import (
+from okf_agents.models import (
     BundleIndex,
     Concept,
     ConceptFrontmatter,

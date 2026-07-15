@@ -73,7 +73,7 @@ class InProcessVectorStore(VectorStore):
     """A minimal, dependency-free in-process vector store for tests.
 
     Supports the idempotent-sync capabilities
-    (:func:`~langgraph_okf.indexing.sync_bundle_to_vector_store` requires
+    (:func:`~okf_agents.indexing.sync_bundle_to_vector_store` requires
     ``get_by_ids`` plus stable-ID writes) and real cosine-similarity
     search over embeddings from the configured :class:`Embeddings`, all
     in pure Python so no numpy or network dependency is required.

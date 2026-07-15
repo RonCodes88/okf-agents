@@ -6,12 +6,12 @@ from typing import ClassVar
 
 import pytest
 
-from langgraph_okf._internal.graph_utils import (
+from okf_agents._internal.graph_utils import (
     breadth_first_reachable,
     build_adjacency,
     merge_adjacency,
 )
-from langgraph_okf.models import LinkEdge
+from okf_agents.models import LinkEdge
 
 pytestmark = pytest.mark.unit
 

@@ -6,7 +6,7 @@ choosing concepts to read, optionally following links, and generating a
 final answer with citations validated against what it actually read.
 
 ```python
-from langgraph_okf import OKFBundle, create_okf_navigator
+from okf_agents import OKFBundle, create_okf_navigator
 
 bundle = OKFBundle.load("./my_bundle")
 navigator = create_okf_navigator(bundle, model, max_hops=3, max_concepts=10)

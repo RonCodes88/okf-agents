@@ -16,8 +16,8 @@ from langchain_core.vectorstores import VectorStore
 from langgraph.graph import END, START, StateGraph
 from pydantic import Field
 
-from langgraph_okf.bundle import OKFBundle
-from langgraph_okf.router import Route, RouterState, create_okf_router
+from okf_agents.bundle import OKFBundle
+from okf_agents.router import Route, RouterState, create_okf_router
 
 pytestmark = pytest.mark.unit
 

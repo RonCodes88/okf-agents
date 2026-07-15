@@ -2,7 +2,7 @@
 
 ## Supported Versions
 
-`langgraph-okf` is pre-1.0 and alpha-quality. Security fixes are made
+`okf-agents` is pre-1.0 and alpha-quality. Security fixes are made
 against the latest release on the `main` branch only.
 
 | Version | Supported |
@@ -27,7 +27,7 @@ release a patch before any public disclosure.
 
 ## Scope Notes
 
-`langgraph-okf` parses local Markdown/YAML bundles and never executes
+`okf-agents` parses local Markdown/YAML bundles and never executes
 arbitrary code from bundle content. If you find a way to trigger unsafe
 deserialization, path traversal outside a bundle root, or arbitrary code
 execution while loading or querying a bundle, that is in scope and

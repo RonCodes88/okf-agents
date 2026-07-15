@@ -1,9 +1,9 @@
-"""Unit tests for the langgraph-okf exception hierarchy."""
+"""Unit tests for the okf-agents exception hierarchy."""
 
 import pytest
 
-from langgraph_okf import __version__
-from langgraph_okf.exceptions import (
+from okf_agents import __version__
+from okf_agents.exceptions import (
     BundleNotFoundError,
     BundleValidationError,
     ConceptNotFoundError,
