@@ -44,11 +44,11 @@ dependencies = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/RonCodes88/langgraph-okf"
-Documentation = "https://github.com/RonCodes88/langgraph-okf/tree/main/docs"
-Repository = "https://github.com/RonCodes88/langgraph-okf"
-"Issue Tracker" = "https://github.com/RonCodes88/langgraph-okf/issues"
-Changelog = "https://github.com/RonCodes88/langgraph-okf/blob/main/CHANGELOG.md"
+Homepage = "https://github.com/RonCodes88/okf-agents"
+Documentation = "https://github.com/RonCodes88/okf-agents/tree/main/docs"
+Repository = "https://github.com/RonCodes88/okf-agents"
+"Issue Tracker" = "https://github.com/RonCodes88/okf-agents/issues"
+Changelog = "https://github.com/RonCodes88/okf-agents/blob/main/CHANGELOG.md"
 
 [project.optional-dependencies]
 test = [

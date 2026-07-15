@@ -5,7 +5,7 @@
 **Open Knowledge Format bundles as first-class LangGraph and LangChain building blocks.**
 
 [![CI](https://github.com/RonCodes88/okf-agents/actions/workflows/ci.yml/badge.svg)](https://github.com/RonCodes88/okf-agents/actions/workflows/ci.yml)
-[![License: MIT](https://img.shields.io/github/license/RonCodes88/okf-agents)](LICENSE)
+[![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 [![Python](https://img.shields.io/badge/python-3.11%20%7C%203.12%20%7C%203.13-blue)](pyproject.toml)
 
 [Installation](#installation) &nbsp;•&nbsp;
@@ -16,7 +16,7 @@
 [Security](SECURITY.md) &nbsp;•&nbsp;
 [Changelog](CHANGELOG.md)
 
-*Not yet published to PyPI — see [the launch checklist](docs/launch-checklist.md).*
+[![PyPI](https://img.shields.io/pypi/v/okf-agents)](https://pypi.org/project/okf-agents/)
 
 </div>
 
