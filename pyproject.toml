@@ -5,23 +5,25 @@ build-backend = "hatchling.build"
 [project]
 name = "okf-agents"
 dynamic = ["version"]
-description = "Open Knowledge Format (OKF) agent tools, navigator, and graph-aware retrieval for LangGraph"
+description = "LangGraph and LangChain tools, retriever, and navigator for OKF (Open Knowledge Format) Markdown bundles"
 readme = "README.md"
 requires-python = ">=3.11"
 license = { text = "MIT" }
 authors = [{ name = "Ronald Li", email = "ronaldliyh@gmail.com" }]
 keywords = [
-    "okf",
-    "open-knowledge-format",
     "langgraph",
     "langchain",
-    "knowledge",
-    "knowledge-management",
-    "markdown",
     "rag",
     "retriever",
+    "markdown",
+    "knowledge-base",
     "knowledge-graph",
+    "graph-retrieval",
     "ai-agents",
+    "okf",
+    "open-knowledge-format",
+    "llm-tools",
+    "markdown-rag",
 ]
 classifiers = [
     "Development Status :: 3 - Alpha",
