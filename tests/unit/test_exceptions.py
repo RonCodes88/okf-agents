@@ -15,7 +15,9 @@ pytestmark = pytest.mark.unit
 
 
 def test_version() -> None:
-    assert __version__ == "0.1.0"
+    parts = __version__.split(".")
+    assert len(parts) == 3
+    assert all(part.isdigit() for part in parts)
 
 
 @pytest.mark.parametrize(

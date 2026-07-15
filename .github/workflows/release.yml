@@ -4,7 +4,7 @@ on:
   push:
     branches: [main]
     paths:
-      - "pyproject.toml"
+      - "okf_agents/__init__.py"
 
 permissions:
   contents: write
@@ -24,8 +24,8 @@ jobs:
         run: |
           version=$(python -c "
           import re, pathlib
-          text = pathlib.Path('pyproject.toml').read_text()
-          print(re.search(r'version\s*=\s*\"([^\"]+)\"', text).group(1))
+          text = pathlib.Path('okf_agents/__init__.py').read_text()
+          print(re.search(r'__version__\s*=\s*\"([^\"]+)\"', text).group(1))
           ")
           echo "version=$version" >> "$GITHUB_OUTPUT"
           if git rev-parse "v$version" >/dev/null 2>&1; then
@@ -58,9 +58,6 @@ jobs:
     name: Publish to PyPI
     needs: [check-version, build]
     runs-on: ubuntu-latest
-    environment:
-      name: release
-      url: https://pypi.org/project/okf-agents/
     permissions:
       id-token: write
       contents: write
