@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "okf-agents"
-version = "0.1.0"
+version = "0.1.2"
 description = "Open Knowledge Format (OKF) agent tools, navigator, and graph-aware retrieval for LangGraph"
 readme = "README.md"
 requires-python = ">=3.11"
