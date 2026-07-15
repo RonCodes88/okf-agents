@@ -1,0 +1,50 @@
+name: Release
+
+# Only an explicit version tag push triggers a release; an ordinary push to
+# a branch (including main) can never publish a package.
+on:
+  push:
+    tags:
+      - "v*.*.*"
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build distribution
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install -e ".[release]"
+      - run: python -m build
+      - run: twine check dist/*
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-dist
+          path: dist/
+
+  publish:
+    name: Publish to PyPI
+    needs: build
+    runs-on: ubuntu-latest
+    # Requires a maintainer-configured "release" GitHub Environment with a
+    # required-reviewers protection rule, so publishing needs a manual
+    # approval even after the tag is pushed. See docs/launch-checklist.md.
+    environment:
+      name: release
+      url: https://pypi.org/project/langgraph-okf/
+    permissions:
+      # id-token: write is required for PyPI trusted publishing (OIDC); no
+      # API token is ever stored as a secret in this repository.
+      id-token: write
+      contents: read
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: release-dist
+          path: dist/
+      - uses: pypa/gh-action-pypi-publish@release/v1

@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Security vulnerability
+    url: https://github.com/RonCodes88/langgraph-okf/security/policy
+    about: Please report security vulnerabilities privately — see SECURITY.md, do not open a public issue.
+  - name: Open Knowledge Format specification
+    url: https://okf.md/spec/
+    about: Questions about the OKF standard itself, rather than this library, belong upstream.
