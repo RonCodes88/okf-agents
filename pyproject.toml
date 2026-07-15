@@ -1,0 +1,93 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "langgraph-okf"
+version = "0.1.0"
+description = "Open Knowledge Format (OKF) bundles as LangGraph-ready knowledge sources"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+keywords = ["okf", "langgraph", "langchain", "knowledge", "markdown"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
+dependencies = [
+    "langgraph>=0.2",
+    "langchain-core>=0.3",
+    "pydantic>=2.0",
+    "pyyaml>=6.0",
+]
+
+[project.optional-dependencies]
+test = [
+    "pytest>=8.0",
+    "pytest-cov>=5.0",
+]
+lint = [
+    "ruff>=0.6",
+]
+typecheck = [
+    "mypy>=1.11",
+    "types-PyYAML>=6.0",
+]
+vector-test = [
+    "chromadb>=0.5",
+    "langchain-chroma>=0.1",
+]
+release = [
+    "build>=1.2",
+    "twine>=5.0",
+]
+dev = [
+    "langgraph-okf[test,lint,typecheck]",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["langgraph_okf"]
+
+[tool.ruff]
+target-version = "py311"
+line-length = 100
+
+[tool.ruff.lint]
+select = [
+    "E",   # pycodestyle errors
+    "W",   # pycodestyle warnings
+    "F",   # pyflakes
+    "I",   # isort
+    "UP",  # pyupgrade
+    "B",   # flake8-bugbear
+    "SIM", # flake8-simplify
+    "RUF", # ruff-specific
+]
+
+[tool.mypy]
+python_version = "3.11"
+strict = true
+warn_unreachable = true
+show_error_codes = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = [
+    "unit: offline, deterministic unit tests",
+    "integration: opt-in tests that may use external services",
+    "e2e: opt-in end-to-end tests against a real model",
+]
+addopts = "--strict-markers"
+
+[tool.coverage.run]
+source = ["langgraph_okf"]
+branch = true
+
+[tool.coverage.report]
+fail_under = 85
+show_missing = true
