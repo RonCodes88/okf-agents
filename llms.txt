@@ -2,6 +2,14 @@
 
 > okf-agents is a Python library that turns Open Knowledge Format (OKF) Markdown bundles into LangGraph and LangChain building blocks: deterministic bundle loading, agent tools, a keyword retriever, a graph-aware semantic retriever, a query router, and a bounded navigator subgraph.
 
+An OKF bundle is a directory of `.md` files with YAML frontmatter (each must have a `type` field) that link to each other with standard Markdown links. Think: internal wikis, runbooks, knowledge bases, or documentation sites — any collection of linked Markdown with metadata.
+
+## Install
+
+```
+pip install okf-agents
+```
+
 ## Docs
 
 - [README](https://github.com/RonCodes88/okf-agents/blob/main/README.md): Install, quick start, and usage examples.
@@ -10,6 +18,16 @@
 - [Navigator and budgets](https://github.com/RonCodes88/okf-agents/blob/main/docs/navigator-and-budgets.md): Traversal strategies and hop/concept/token budget enforcement.
 - [Vector stores](https://github.com/RonCodes88/okf-agents/blob/main/docs/vector-stores.md): Store requirements, idempotent sync, and graph-aware retrieval.
 - [Testing](https://github.com/RonCodes88/okf-agents/blob/main/docs/testing.md): Unit, integration, and e2e test tiers.
+
+## Quick usage
+
+```python
+from okf_agents import OKFBundle, create_okf_tools
+
+bundle = OKFBundle.load("path/to/bundle")    # directory of .md files
+tools = create_okf_tools(bundle)             # 4 LangChain tools, no model required
+# tools: [read_concept, search_concepts, list_links, read_index]
+```
 
 ## Optional
 

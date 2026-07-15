@@ -19,31 +19,32 @@
 
 ---
 
-`okf-agents` turns an [Open Knowledge Format (OKF)](https://okf.md) bundle
-— a directory of linked Markdown concepts with YAML frontmatter — into
-typed, composable LangGraph and LangChain building blocks. Load a bundle,
-get agent tools, a keyword retriever, a graph-aware semantic retriever,
-a query router, and a bounded navigator subgraph — all independently
-usable, all offline by default.
+Have a directory of Markdown files with YAML frontmatter that link to
+each other — a wiki, a knowledge base, internal docs, runbooks? `okf-agents`
+parses the whole directory, builds the link graph, and gives you typed
+LangGraph and LangChain building blocks: agent tools, a keyword retriever,
+a graph-aware semantic retriever, a query router, and a bounded navigator
+subgraph. Everything is composable, and everything except the navigator
+works offline with no model.
 
-## Why okf-agents?
+The Markdown files follow the [Open Knowledge Format (OKF)](https://okf.md)
+convention — any `.md` file with a `type` field in its YAML frontmatter
+qualifies.
 
-Most RAG pipelines chunk documents into a vector store and throw away the
-link structure. `okf-agents` keeps the bundle's link graph as a
-first-class citizen:
+## Why graph-aware retrieval?
 
-- **Graph-aware retrieval.** Vector search finds entry points; the link
-  graph expands the neighborhood. Search for "orders" and automatically
-  pull in "customers" because orders *links to* customers.
-- **Deterministic by default.** Search, traversal, and routing are
-  offline and dependency-free. A model is only involved where you
-  explicitly ask for one.
-- **Composable pieces, not a framework.** Use just the bundle loader,
-  just the tools, or just the retriever — nothing forces you to wire the
-  whole stack.
-- **Real budget enforcement.** The navigator's hop, concept, and token
-  budgets are hard limits on the graph, not soft guidelines a model can
-  blow through.
+Most RAG pipelines chunk documents into a vector store and throw away
+the link structure. `okf-agents` keeps the link graph as a first-class
+citizen:
+
+| | Traditional RAG | okf-agents |
+|---|---|---|
+| **Input** | Flat document chunks | Linked Markdown files with metadata |
+| **Retrieval** | Vector similarity only | Vector search + link-graph expansion |
+| **Structure** | Lost after chunking | Preserved — titles, tags, types, links |
+| **Multi-hop** | Requires multiple retrievals + prompt engineering | Built-in navigator walks links within hard budgets |
+| **Determinism** | Depends on embeddings | Search, traversal, and routing are fully deterministic |
+| **Dependencies** | Embedding model required | No model required for tools, search, or routing |
 
 ## Installation
 
@@ -84,9 +85,30 @@ Point `OKFBundle.load()` at any directory of Markdown files with `type`
 frontmatter. No index file is required — see
 [docs/concepts.md](docs/concepts.md).
 
+## What your Markdown files look like
+
+Any `.md` file with a `type` field in YAML frontmatter works:
+
+```markdown
+---
+type: runbook
+title: Deploying to Production
+tags: [devops, deploy]
+---
+
+# Deploying to Production
+
+Before deploying, verify the [staging checklist](staging-checklist.md)
+and confirm [monitoring](../monitoring/alerts.md) is green.
+```
+
+Links between files (`[text](relative-path.md)`) become edges in the
+graph. `okf-agents` resolves them automatically and exposes them
+through the tools, retriever, and navigator.
+
 ## Examples
 
-### Agent tools
+### LangGraph agent with knowledge base tools
 
 ```python
 from okf_agents import create_okf_tools
@@ -97,7 +119,7 @@ tools = create_okf_tools(bundle)  # read_concept, search_concepts, list_links, r
 Drop these into any tool-calling agent. All four are deterministic and
 require no model.
 
-### Keyword retriever
+### Keyword retriever (no vector store)
 
 ```python
 from okf_agents import OKFRetriever
@@ -106,7 +128,10 @@ retriever = OKFRetriever(bundle=bundle, top_k=3)
 docs = retriever.invoke("orders")
 ```
 
-### Router
+Returns LangChain `Document` objects ranked by title > tags >
+description > body.
+
+### Query router
 
 ```python
 from okf_agents import create_okf_router
@@ -119,7 +144,7 @@ router({"query": "how do refunds work?"})  # vague, no vector store → "bundle"
 Pass `vector_store=` to route vague queries to `"vector"`, or
 `classifier=` to let a model choose.
 
-### Navigator subgraph
+### Navigator subgraph (autonomous multi-hop traversal)
 
 ```python
 import json
@@ -142,7 +167,7 @@ print(result["answer"], result["citations"])
 ```
 
 The navigator reads concepts, follows links breadth-first, and produces
-a cited answer — all within hard token/hop budgets. Swap
+a cited answer — all within hard token/hop/concept budgets. Swap
 `FakeListChatModel` for `ChatAnthropic`, `ChatOpenAI`, or any
 `BaseChatModel` in production. See
 [docs/navigator-and-budgets.md](docs/navigator-and-budgets.md).
@@ -166,7 +191,7 @@ example and the store-capability contract.
 ## Architecture
 
 ```text
-OKF bundle (directory of Markdown)
+Markdown directory (your wiki / knowledge base / docs)
         │
         ▼
    OKFBundle.load()            deterministic parse + link graph + lexical search
@@ -179,7 +204,22 @@ OKF bundle (directory of Markdown)
         └── create_okf_navigator()     bounded read → expand → cite subgraph
 ```
 
-Every piece is independently usable.
+Every piece is independently usable. Use just the bundle loader, just
+the tools, or just the retriever — nothing forces you to wire the whole
+stack.
+
+## Use cases
+
+- **Internal wikis** — point at a Confluence export or a docs directory
+  and get an instant Q&A agent
+- **Runbooks and SOPs** — navigable, citable answers grounded in your
+  actual procedures
+- **Product knowledge bases** — support agents that follow links between
+  related articles instead of returning isolated chunks
+- **Research notes** — Obsidian-style vaults with linked concepts get
+  graph-aware retrieval out of the box
+- **API/SDK documentation** — linked reference docs become searchable,
+  traversable agent tools
 
 ## Compatibility
 
@@ -201,6 +241,6 @@ Contributions welcome — see [CONTRIBUTING.md](CONTRIBUTING.md).
 
 <div align="center">
 
-If this project is useful to you, a ⭐ helps others find it.
+If this project saved you time, a ⭐ helps others find it.
 
 </div>
