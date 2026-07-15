@@ -35,5 +35,5 @@ Initial alpha release.
   (`RUN_INTEGRATION_TESTS=1`), and opt-in end-to-end tests
   (`RUN_E2E_TESTS=1`).
 
-[Unreleased]: https://github.com/RonCodes88/langgraph-okf/compare/v0.1.0...HEAD
-[0.1.0]: https://github.com/RonCodes88/langgraph-okf/releases/tag/v0.1.0
+[Unreleased]: https://github.com/RonCodes88/okf-agents/compare/v0.1.0...HEAD
+[0.1.0]: https://github.com/RonCodes88/okf-agents/releases/tag/v0.1.0

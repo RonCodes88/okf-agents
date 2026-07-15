@@ -18,7 +18,7 @@ from langchain_core.documents import Document
 from langchain_core.language_models import BaseLanguageModel
 from langchain_core.vectorstores import VectorStore
 
-from langgraph_okf.bundle import OKFBundle
+from okf_agents.bundle import OKFBundle
 
 __all__ = ["Route", "RouterState", "create_okf_router"]
 

@@ -1,6 +1,6 @@
 # Testing
 
-`langgraph-okf` has three test tiers, matching `pytest` markers
+`okf-agents` has three test tiers, matching `pytest` markers
 `unit`, `integration`, and `e2e`. Only the first two run by default;
 provider- and network-dependent tests are opt-in.
 
@@ -71,6 +71,6 @@ suite should pin down.
 pytest --cov
 ```
 
-Coverage is measured with branch coverage over `langgraph_okf/`; CI and
+Coverage is measured with branch coverage over `okf_agents/`; CI and
 local runs both fail under 85% total coverage (`[tool.coverage.report]`
 in `pyproject.toml`).

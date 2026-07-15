@@ -1,6 +1,6 @@
 # Core concepts
 
-This page explains the data model `langgraph-okf` builds from an
+This page explains the data model `okf-agents` builds from an
 [OKF](https://okf.md) bundle: what counts as a concept, how concept IDs are
 derived, how the root index works, how links resolve, and how lexical
 search ranks results. It documents the implementation contracts this

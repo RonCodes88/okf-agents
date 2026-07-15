@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from langgraph_okf._internal.parser import (
+from okf_agents._internal.parser import (
     extract_internal_links,
     normalize_link_target,
     parse_bundle_index,
@@ -13,8 +13,8 @@ from langgraph_okf._internal.parser import (
     split_frontmatter,
     synthesize_bundle_index,
 )
-from langgraph_okf.exceptions import BundleValidationError
-from langgraph_okf.models import Concept, ConceptFrontmatter
+from okf_agents.exceptions import BundleValidationError
+from okf_agents.models import Concept, ConceptFrontmatter
 
 pytestmark = pytest.mark.unit
 

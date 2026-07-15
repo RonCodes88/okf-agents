@@ -17,10 +17,10 @@ from langchain_core.messages import AIMessage, HumanMessage
 from langgraph.graph import END, START, StateGraph
 from langgraph.prebuilt import create_react_agent
 
-from langgraph_okf.bundle import OKFBundle
-from langgraph_okf.navigator import create_okf_navigator
-from langgraph_okf.router import Route, RouterState, create_okf_router
-from langgraph_okf.tools import create_okf_tools
+from okf_agents.bundle import OKFBundle
+from okf_agents.navigator import create_okf_navigator
+from okf_agents.router import Route, RouterState, create_okf_router
+from okf_agents.tools import create_okf_tools
 from tests.provider_support import run_with_timeout
 
 pytestmark = pytest.mark.e2e

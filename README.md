@@ -1,11 +1,11 @@
 <div align="center">
 
-# langgraph-okf
+# okf-agents
 
 **Open Knowledge Format bundles as first-class LangGraph and LangChain building blocks.**
 
-[![CI](https://github.com/RonCodes88/langgraph-okf/actions/workflows/ci.yml/badge.svg)](https://github.com/RonCodes88/langgraph-okf/actions/workflows/ci.yml)
-[![License: MIT](https://img.shields.io/github/license/RonCodes88/langgraph-okf)](LICENSE)
+[![CI](https://github.com/RonCodes88/okf-agents/actions/workflows/ci.yml/badge.svg)](https://github.com/RonCodes88/okf-agents/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/github/license/RonCodes88/okf-agents)](LICENSE)
 [![Python](https://img.shields.io/badge/python-3.11%20%7C%203.12%20%7C%203.13-blue)](pyproject.toml)
 
 [Installation](#installation) &nbsp;•&nbsp;
@@ -22,7 +22,7 @@
 
 ---
 
-`langgraph-okf` turns an [Open Knowledge Format (OKF)](https://okf.md) bundle
+`okf-agents` turns an [Open Knowledge Format (OKF)](https://okf.md) bundle
 — a directory of linked, frontmattered Markdown concepts — into deterministic
 LangGraph and LangChain building blocks: bundle loading and weighted lexical
 search, four ready-made agent tools, a keyword retriever, a bounded navigator
@@ -34,7 +34,7 @@ another end-to-end RAG framework to learn.
 
 Loading arbitrary Markdown gives you text; a vector store alone gives you
 semantically similar chunks with no sense of how concepts relate to each
-other. `langgraph-okf` keeps the bundle's link graph as a first-class
+other. `okf-agents` keeps the bundle's link graph as a first-class
 citizen: search results and semantic hits can be expanded through resolved
 links (`OKFGraphRetriever`), the navigator subgraph follows links breadth
 -first or on model guidance within hard token/hop budgets, and every
@@ -48,7 +48,7 @@ is an integration layer for OKF, not the standard itself.
 ## Installation
 
 ```bash
-pip install langgraph-okf
+pip install okf-agents
 ```
 
 Only `langgraph`, `langchain-core`, `pydantic`, and `pyyaml` are required.
@@ -63,7 +63,7 @@ For local development instead, see [Development](#development).
 ```python
 import tempfile
 from pathlib import Path
-from langgraph_okf import OKFBundle
+from okf_agents import OKFBundle
 
 tmp_dir = tempfile.mkdtemp()
 concepts_dir = Path(tmp_dir) / "concepts"
@@ -88,7 +88,7 @@ That's the whole contract: point `OKFBundle.load()` at a directory of
 Markdown files with `type` frontmatter, and get back a typed, queryable
 bundle. No index file is required — see [docs/concepts.md](docs/concepts.md).
 
-## Why use langgraph-okf?
+## Why use okf-agents?
 
 - **Deterministic by default.** Search, traversal, and routing heuristics
   are dependency-free and offline; a real model is only involved where you
@@ -106,7 +106,7 @@ bundle. No index file is required — see [docs/concepts.md](docs/concepts.md).
 ## When should I not use it?
 
 - You need a general-purpose document loader for arbitrary file formats
-  (PDFs, HTML, docx) — `langgraph-okf` only reads OKF-shaped Markdown
+  (PDFs, HTML, docx) — `okf-agents` only reads OKF-shaped Markdown
   bundles.
 - You need semantic chunking, reranking, or multi-vector-store fan-out —
   this library intentionally keeps vector-store integration minimal (see
@@ -122,7 +122,7 @@ Each example below continues from the `bundle` loaded in
 ### LangChain agent tools
 
 ```python
-from langgraph_okf import create_okf_tools
+from okf_agents import create_okf_tools
 
 tools = create_okf_tools(bundle)
 search_tool = next(tool for tool in tools if tool.name == "search_concepts")
@@ -136,7 +136,7 @@ tool-calling agent.
 ### Keyword retriever
 
 ```python
-from langgraph_okf import OKFRetriever
+from okf_agents import OKFRetriever
 
 retriever = OKFRetriever(bundle=bundle, top_k=3)
 for document in retriever.invoke("orders"):
@@ -146,7 +146,7 @@ for document in retriever.invoke("orders"):
 ### Router
 
 ```python
-from langgraph_okf import create_okf_router
+from okf_agents import create_okf_router
 
 router = create_okf_router(bundle)
 print(router({"query": "Orders"}))                 # exact title match -> "bundle"
@@ -167,7 +167,7 @@ The navigator needs a chat model. This example uses LangChain's
 ```python
 import json
 from langchain_core.language_models.fake_chat_models import FakeListChatModel
-from langgraph_okf import create_okf_navigator
+from okf_agents import create_okf_navigator
 
 model = FakeListChatModel(
     responses=[
@@ -205,7 +205,7 @@ from typing import Any
 from langchain_core.documents import Document
 from langchain_core.embeddings import Embeddings
 from langchain_core.vectorstores import VectorStore
-from langgraph_okf import OKFGraphRetriever, sync_bundle_to_vector_store
+from okf_agents import OKFGraphRetriever, sync_bundle_to_vector_store
 
 
 class DemoEmbeddings(Embeddings):
@@ -307,7 +307,7 @@ APIs may change between minor versions.
 ## Public API map
 
 ```python
-from langgraph_okf import (
+from okf_agents import (
     OKFBundle,
     Concept, ConceptFrontmatter, LinkEdge, BundleIndex, SyncResult,
     create_okf_tools,
@@ -356,8 +356,8 @@ the router, or the navigator with your own chat model and vector store.
 ## Development
 
 ```bash
-git clone https://github.com/RonCodes88/langgraph-okf.git
-cd langgraph-okf
+git clone https://github.com/RonCodes88/okf-agents.git
+cd okf-agents
 python -m venv .venv && source .venv/bin/activate
 pip install -e ".[dev]"
 ```
@@ -368,7 +368,7 @@ pip install -e ".[dev]"
 pytest              # unit tests + offline integration tests, no secrets required
 pytest --cov        # with coverage (>= 85% required)
 ruff check .
-mypy langgraph_okf tests
+mypy okf_agents tests
 ```
 
 Provider-integration and end-to-end tests are opt-in

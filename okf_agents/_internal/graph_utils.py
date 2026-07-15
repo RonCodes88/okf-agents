@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from collections.abc import Iterable, Mapping, Sequence
 
-from langgraph_okf.models import LinkEdge
+from okf_agents.models import LinkEdge
 
 __all__ = [
     "breadth_first_reachable",
