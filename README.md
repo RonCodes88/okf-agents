@@ -59,24 +59,31 @@ dependencies — bring the ones you need.
 ## Quick Start
 
 ```python
+import tempfile
 from pathlib import Path
-from okf_agents import OKFBundle, create_okf_tools
+from okf_agents import OKFBundle
 
-# Point at any directory of Markdown files with `type` frontmatter
-bundle = OKFBundle.load("path/to/your/markdown/directory")
+tmp = Path(tempfile.mkdtemp()) / "concepts"
+tmp.mkdir()
+(tmp / "orders.md").write_text(
+    "---\ntype: table\ntitle: Orders\ntags: [sales]\n---\n"
+    "# Orders\n\nEach order belongs to a [customer](customers.md).\n"
+)
+(tmp / "customers.md").write_text(
+    "---\ntype: table\ntitle: Customers\ntags: [crm]\n---\n"
+    "# Customers\n\nCustomer accounts and contact details.\n"
+)
 
-# Get 4 ready-to-use LangChain tools — no model required
-tools = create_okf_tools(bundle)
-# tools: [read_concept, search_concepts, list_links, read_index]
+bundle = OKFBundle.load(tmp.parent)
+print(bundle.concept_count, "concepts loaded")
 
-# Pass them straight to any LangGraph or LangChain agent
-from langgraph.prebuilt import create_react_agent
-agent = create_react_agent(model, tools)
+for concept in bundle.search("customer", top_k=3):
+    print(concept.id, concept.frontmatter.title)
 ```
 
-That's it. Your agent can now read, search, and traverse your Markdown
-knowledge base. No chunking, no embedding, no vector store needed for
-the basic flow.
+Point `OKFBundle.load()` at any directory of Markdown files with `type`
+frontmatter. No index file is required — see
+[docs/concepts.md](docs/concepts.md).
 
 ## What your Markdown files look like
 
@@ -104,72 +111,82 @@ through the tools, retriever, and navigator.
 ### LangGraph agent with knowledge base tools
 
 ```python
-from okf_agents import OKFBundle, create_okf_tools
+from okf_agents import create_okf_tools
 
-bundle = OKFBundle.load("docs/knowledge-base")
-tools = create_okf_tools(bundle)
-# Returns: read_concept, search_concepts, list_links, read_index
-# All deterministic, all offline — pass to any tool-calling agent.
+tools = create_okf_tools(bundle)  # read_concept, search_concepts, list_links, read_index
 ```
+
+Drop these into any tool-calling agent. All four are deterministic and
+require no model.
 
 ### Keyword retriever (no vector store)
 
 ```python
-from okf_agents import OKFBundle, OKFRetriever
+from okf_agents import OKFRetriever
 
-bundle = OKFBundle.load("docs/knowledge-base")
 retriever = OKFRetriever(bundle=bundle, top_k=3)
-docs = retriever.invoke("deployment process")
-# Returns LangChain Documents ranked by title > tags > description > body
+docs = retriever.invoke("orders")
 ```
 
-### Graph-aware semantic retrieval (vector store + link expansion)
-
-```python
-from okf_agents import OKFBundle, OKFGraphRetriever, sync_bundle_to_vector_store
-
-bundle = OKFBundle.load("docs/knowledge-base")
-sync_bundle_to_vector_store(bundle, vector_store)  # idempotent upsert
-
-retriever = OKFGraphRetriever(
-    bundle=bundle,
-    vector_store=vector_store,
-    top_k=3,
-    expand_hops=1,
-)
-docs = retriever.invoke("deployment")
-# Finds "deploying-to-production" via vector search,
-# then expands to "staging-checklist" and "alerts" via the link graph.
-```
+Returns LangChain `Document` objects ranked by title > tags >
+description > body.
 
 ### Query router
 
 ```python
-from okf_agents import OKFBundle, create_okf_router
+from okf_agents import create_okf_router
 
-bundle = OKFBundle.load("docs/knowledge-base")
 router = create_okf_router(bundle)
-router({"query": "Deploying to Production"})     # exact title → "bundle"
-router({"query": "how do I roll back a deploy?"}) # vague → "bundle" (or "vector" if a vector store is configured)
+router({"query": "Orders"})               # exact title match → "bundle"
+router({"query": "how do refunds work?"})  # vague, no vector store → "bundle"
 ```
+
+Pass `vector_store=` to route vague queries to `"vector"`, or
+`classifier=` to let a model choose.
 
 ### Navigator subgraph (autonomous multi-hop traversal)
 
 ```python
-from okf_agents import OKFBundle, create_okf_navigator
+import json
+from langchain_core.language_models.fake_chat_models import FakeListChatModel
+from okf_agents import create_okf_navigator
 
-bundle = OKFBundle.load("docs/knowledge-base")
-navigator = create_okf_navigator(bundle, model, max_hops=3, max_concepts=10)
-result = navigator.invoke({"question": "What's the full deploy process?"})
-
-print(result["answer"])          # grounded answer from bundle content
-print(result["citations"])       # ["concepts/deploying-to-production", ...]
-print(result["traversal_path"])  # ["index", "concepts/deploying-to-production", ...]
+model = FakeListChatModel(
+    responses=[
+        json.dumps({"concept_ids": ["concepts/orders"]}),
+        json.dumps({"sufficient": True}),
+        json.dumps({
+            "answer": "Orders belong to customers.",
+            "citations": ["concepts/orders"],
+        }),
+    ]
+)
+navigator = create_okf_navigator(bundle, model, max_hops=2)
+result = navigator.invoke({"question": "How do orders relate to customers?"})
+print(result["answer"], result["citations"])
 ```
 
 The navigator reads concepts, follows links breadth-first, and produces
-a cited answer — all within hard token/hop/concept budgets. See
+a cited answer — all within hard token/hop/concept budgets. Swap
+`FakeListChatModel` for `ChatAnthropic`, `ChatOpenAI`, or any
+`BaseChatModel` in production. See
 [docs/navigator-and-budgets.md](docs/navigator-and-budgets.md).
+
+### Graph-aware semantic retrieval
+
+`sync_bundle_to_vector_store` + `OKFGraphRetriever` work with any
+LangChain `VectorStore` that supports ID-based lookup:
+
+```text
+sync_bundle_to_vector_store(bundle, vector_store)  # idempotent upsert
+
+retriever = OKFGraphRetriever(bundle, vector_store, top_k=3, expand_hops=1)
+docs = retriever.invoke("order belongs")
+# → concepts/orders + concepts/customers (reached via the link graph)
+```
+
+See [docs/vector-stores.md](docs/vector-stores.md) for a full working
+example and the store-capability contract.
 
 ## Architecture
 
