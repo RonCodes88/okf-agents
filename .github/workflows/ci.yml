@@ -1,0 +1,120 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    name: Lint and type check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install -e ".[lint,typecheck]"
+      - run: ruff check .
+      - run: mypy langgraph_okf tests
+
+  test:
+    name: Test (Python ${{ matrix.python-version }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.11", "3.12", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - run: pip install -e ".[test]"
+      # Runs unit tests plus the offline integration tier (in-process vector
+      # store + fake embeddings). Provider-integration and e2e tests skip
+      # cleanly here: RUN_INTEGRATION_TESTS / RUN_E2E_TESTS are unset and no
+      # provider secret is present, matching the "CI runs on forks without
+      # secrets" requirement.
+      - run: pytest --cov --cov-report=xml
+
+  readme-examples:
+    name: Execute README code samples
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install -e "."
+      - name: Run every python code block in README.md in document order
+        run: |
+          python - <<'EOF'
+          import re
+          from pathlib import Path
+
+          text = Path("README.md").read_text()
+          blocks = re.findall(r"```python\n(.*?)```", text, re.DOTALL)
+          assert blocks, "expected at least one python code block in README.md"
+          namespace: dict[str, object] = {}
+          for index, block in enumerate(blocks):
+              print(f"--- README block {index} ---")
+              exec(compile(block, f"<readme-block-{index}>", "exec"), namespace)
+          print(f"OK: executed {len(blocks)} README code blocks")
+          EOF
+
+  build:
+    name: Build and validate package
+    needs: [lint, test]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install -e ".[release]"
+      - run: python -m build
+      - run: twine check dist/*
+      - name: Install the built wheel in a clean environment and smoke-test imports
+        run: |
+          python -m venv /tmp/wheel-env
+          /tmp/wheel-env/bin/pip install dist/*.whl
+          /tmp/wheel-env/bin/python -c "
+          import langgraph_okf as pkg
+          for name in pkg.__all__:
+              assert hasattr(pkg, name), f'{name} missing from package namespace'
+          print('OK:', pkg.__version__, '-', len(pkg.__all__), 'public names')
+          "
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+  # Exercises the navigator against a *real* chat model. Deliberately
+  # restricted to manual workflow_dispatch runs (never `pull_request`, so a
+  # fork can never trigger it) and gated behind the "integration" GitHub
+  # Environment, which requires maintainer approval before secrets are
+  # exposed to the job.
+  provider-integration:
+    name: Provider integration tests (manual)
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    environment: integration
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install -e ".[test]" langchain-anthropic
+      - env:
+          RUN_INTEGRATION_TESTS: "1"
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: pytest -m integration

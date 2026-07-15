@@ -6,18 +6,35 @@ build-backend = "hatchling.build"
 name = "langgraph-okf"
 version = "0.1.0"
 description = "Open Knowledge Format (OKF) bundles as LangGraph-ready knowledge sources"
+readme = "README.md"
 requires-python = ">=3.11"
 license = { text = "MIT" }
-keywords = ["okf", "langgraph", "langchain", "knowledge", "markdown"]
+authors = [{ name = "Ronald Li", email = "ronaldliyh@gmail.com" }]
+keywords = [
+    "okf",
+    "open-knowledge-format",
+    "langgraph",
+    "langchain",
+    "knowledge",
+    "knowledge-management",
+    "markdown",
+    "rag",
+    "retriever",
+    "knowledge-graph",
+    "ai-agents",
+]
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Developers",
     "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
     "Topic :: Software Development :: Libraries :: Python Modules",
+    "Topic :: Text Processing :: Markup :: Markdown",
+    "Typing :: Typed",
 ]
 dependencies = [
     "langgraph>=0.2",
@@ -25,6 +42,13 @@ dependencies = [
     "pydantic>=2.0",
     "pyyaml>=6.0",
 ]
+
+[project.urls]
+Homepage = "https://github.com/RonCodes88/langgraph-okf"
+Documentation = "https://github.com/RonCodes88/langgraph-okf/tree/main/docs"
+Repository = "https://github.com/RonCodes88/langgraph-okf"
+"Issue Tracker" = "https://github.com/RonCodes88/langgraph-okf/issues"
+Changelog = "https://github.com/RonCodes88/langgraph-okf/blob/main/CHANGELOG.md"
 
 [project.optional-dependencies]
 test = [
@@ -52,6 +76,16 @@ dev = [
 
 [tool.hatch.build.targets.wheel]
 packages = ["langgraph_okf"]
+
+[tool.hatch.build.targets.sdist]
+include = [
+    "/langgraph_okf",
+    "/tests",
+    "/docs",
+    "/README.md",
+    "/CHANGELOG.md",
+    "/LICENSE",
+]
 
 [tool.ruff]
 target-version = "py311"

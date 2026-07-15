@@ -1,0 +1,26 @@
+# langgraph-okf
+
+> `langgraph-okf` is a Python library that connects [Open Knowledge Format
+> (OKF)](https://okf.md) Markdown bundles to LangGraph and LangChain agent
+> workflows: deterministic bundle loading and search, LangChain tools and
+> retrievers, a bounded navigator subgraph, a query router, and idempotent
+> vector-store synchronization with graph-aware retrieval. It is an
+> integration library for OKF, not the OKF specification itself.
+
+`langgraph-okf` is pre-1.0 (alpha). Public APIs are typed and covered by
+tests, but signatures may still change between minor versions.
+
+## Core
+
+- [README](https://github.com/RonCodes88/langgraph-okf/blob/main/README.md): install, quick start, and progressively richer usage examples.
+- [Concepts](https://github.com/RonCodes88/langgraph-okf/blob/main/docs/concepts.md): concept IDs, optional indexes, broken links, and lexical weighting.
+- [API reference](https://github.com/RonCodes88/langgraph-okf/blob/main/docs/api-reference.md): every public class and function, grouped by module.
+- [Navigator and budgets](https://github.com/RonCodes88/langgraph-okf/blob/main/docs/navigator-and-budgets.md): traversal strategies and the hop/concept/token budgets that bound them.
+- [Vector stores and sync](https://github.com/RonCodes88/langgraph-okf/blob/main/docs/vector-stores.md): store requirements, idempotent sync, and graph-aware retrieval.
+- [Testing](https://github.com/RonCodes88/langgraph-okf/blob/main/docs/testing.md): the unit / integration / e2e test tiers and how to opt into each.
+
+## Optional
+
+- [CHANGELOG](https://github.com/RonCodes88/langgraph-okf/blob/main/CHANGELOG.md): release history.
+- [CONTRIBUTING](https://github.com/RonCodes88/langgraph-okf/blob/main/CONTRIBUTING.md): development setup and contribution workflow.
+- [Official OKF specification](https://okf.md/spec/): the underlying Open Knowledge Format standard this library implements against.
