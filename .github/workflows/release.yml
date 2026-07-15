@@ -1,18 +1,45 @@
 name: Release
 
-# Only an explicit version tag push triggers a release; an ordinary push to
-# a branch (including main) can never publish a package.
 on:
   push:
-    tags:
-      - "v*.*.*"
+    branches: [main]
+    paths:
+      - "pyproject.toml"
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
+  check-version:
+    name: Detect version bump
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.meta.outputs.version }}
+      should_release: ${{ steps.meta.outputs.should_release }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - id: meta
+        run: |
+          version=$(python -c "
+          import re, pathlib
+          text = pathlib.Path('pyproject.toml').read_text()
+          print(re.search(r'version\s*=\s*\"([^\"]+)\"', text).group(1))
+          ")
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          if git rev-parse "v$version" >/dev/null 2>&1; then
+            echo "should_release=false" >> "$GITHUB_OUTPUT"
+            echo "Tag v$version already exists — skipping release."
+          else
+            echo "should_release=true" >> "$GITHUB_OUTPUT"
+            echo "New version $version detected — will release."
+          fi
+
   build:
     name: Build distribution
+    needs: check-version
+    if: needs.check-version.outputs.should_release == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -29,22 +56,22 @@ jobs:
 
   publish:
     name: Publish to PyPI
-    needs: build
+    needs: [check-version, build]
     runs-on: ubuntu-latest
-    # Requires a maintainer-configured "release" GitHub Environment with a
-    # required-reviewers protection rule, so publishing needs a manual
-    # approval even after the tag is pushed. See docs/launch-checklist.md.
     environment:
       name: release
       url: https://pypi.org/project/okf-agents/
     permissions:
-      # id-token: write is required for PyPI trusted publishing (OIDC); no
-      # API token is ever stored as a secret in this repository.
       id-token: write
-      contents: read
+      contents: write
     steps:
+      - uses: actions/checkout@v4
       - uses: actions/download-artifact@v4
         with:
           name: release-dist
           path: dist/
       - uses: pypa/gh-action-pypi-publish@release/v1
+      - name: Create git tag
+        run: |
+          git tag "v${{ needs.check-version.outputs.version }}"
+          git push origin "v${{ needs.check-version.outputs.version }}"
