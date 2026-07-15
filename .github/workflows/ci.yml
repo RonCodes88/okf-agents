@@ -22,7 +22,9 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-      - run: pip install -e ".[lint,typecheck]"
+      # mypy checks tests/ too, which imports pytest, so the typecheck extra
+      # alone is not enough here even though it's enough for langgraph_okf/.
+      - run: pip install -e ".[dev]"
       - run: ruff check .
       - run: mypy langgraph_okf tests
 
