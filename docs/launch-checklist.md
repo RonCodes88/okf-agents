@@ -10,7 +10,7 @@ separately.
 - [x] Verified `okf-agents` is unclaimed on PyPI (checked
       `https://pypi.org/pypi/okf-agents/json` on 2026-07-14 → 404, not
       registered).
-- [ ] Maintainer: claim the name by publishing `0.1.0` through the
+- [x] Maintainer: claim the name by publishing `0.1.0` through the
       [release workflow](../.github/workflows/release.yml) once the
       `release` GitHub Environment (see below) is configured.
 
