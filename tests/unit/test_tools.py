@@ -7,8 +7,8 @@ from pathlib import Path
 import pytest
 from langchain_core.tools import BaseTool
 
-from langgraph_okf.bundle import OKFBundle
-from langgraph_okf.tools import create_okf_tools
+from okf_agents.bundle import OKFBundle
+from okf_agents.tools import create_okf_tools
 
 pytestmark = pytest.mark.unit
 

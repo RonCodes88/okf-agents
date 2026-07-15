@@ -14,8 +14,8 @@ from __future__ import annotations
 import pytest
 from langchain_core.language_models import BaseChatModel
 
-from langgraph_okf.bundle import OKFBundle
-from langgraph_okf.navigator import create_okf_navigator
+from okf_agents.bundle import OKFBundle
+from okf_agents.navigator import create_okf_navigator
 from tests.provider_support import run_with_timeout
 
 pytestmark = pytest.mark.integration

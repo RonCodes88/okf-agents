@@ -1,12 +1,12 @@
 # API reference
 
-Everything below is importable from the top-level `langgraph_okf` package
-(`from langgraph_okf import ...`) unless noted otherwise. This is a
+Everything below is importable from the top-level `okf_agents` package
+(`from okf_agents import ...`) unless noted otherwise. This is a
 reference for behavior and contracts; see [concepts.md](concepts.md),
 [navigator-and-budgets.md](navigator-and-budgets.md), and
 [vector-stores.md](vector-stores.md) for the reasoning behind them.
 
-## `langgraph_okf.bundle`
+## `okf_agents.bundle`
 
 ### `OKFBundle`
 
@@ -34,7 +34,7 @@ cannot mutate bundle internals.
   breadth-first over resolved edges only; raises `ValueError` for a
   negative `hops` or unknown `direction`.
 
-## `langgraph_okf.models`
+## `okf_agents.models`
 
 Pure Pydantic data contracts; validate structure only.
 
@@ -49,7 +49,7 @@ Pure Pydantic data contracts; validate structure only.
 - `SyncResult` — `added`, `updated`, `skipped`, `failed` (all `int`),
   `errors: list[str]`.
 
-## `langgraph_okf.exceptions`
+## `okf_agents.exceptions`
 
 All derive from `OKFError`, so callers can catch one base type.
 
@@ -63,7 +63,7 @@ All derive from `OKFError`, so callers can catch one base type.
 - `LinkResolutionError` — an internal link could not be resolved on
   demand. Carries `.source_id` and `.target`.
 
-## `langgraph_okf.tools`
+## `okf_agents.tools`
 
 - `create_okf_tools(bundle: OKFBundle) -> list[BaseTool]` — returns
   `read_concept`, `search_concepts`, `list_links`, `read_index`, in that
@@ -74,7 +74,7 @@ All derive from `OKFError`, so callers can catch one base type.
   concept ID, invalid input) return a string starting with `Error:`
   rather than raising.
 
-## `langgraph_okf.retriever`
+## `okf_agents.retriever`
 
 - `concept_to_document(concept: Concept, *, bundle_root: Path) -> Document` —
   the single shared conversion from a `Concept` to a LangChain `Document`;
@@ -87,7 +87,7 @@ All derive from `OKFError`, so callers can catch one base type.
   a `BaseRetriever` that expands vector-store hits through the bundle's
   link graph; see [vector-stores.md](vector-stores.md).
 
-## `langgraph_okf.router`
+## `okf_agents.router`
 
 - `Route = Literal["bundle", "vector", "both"]`
 - `RouterState` — `TypedDict` with `query: str`, `route: NotRequired[Route | None]`,
@@ -102,7 +102,7 @@ All derive from `OKFError`, so callers can catch one base type.
   vector store is coerced to `bundle`. Raises `ValueError` on an empty
   query.
 
-## `langgraph_okf.navigator`
+## `okf_agents.navigator`
 
 - `NavigatorState` — `TypedDict` with `question: str` plus
   `NotRequired` fields `visited`, `context`, `tokens_used`, `hops`,
@@ -111,7 +111,7 @@ All derive from `OKFError`, so callers can catch one base type.
   see [navigator-and-budgets.md](navigator-and-budgets.md) for the full
   behavior contract.
 
-## `langgraph_okf.indexing`
+## `okf_agents.indexing`
 
 - `stable_document_id(bundle_root: str | Path, concept_id: str) -> str` —
   deterministic UUIDv5 vector-store ID for one concept.

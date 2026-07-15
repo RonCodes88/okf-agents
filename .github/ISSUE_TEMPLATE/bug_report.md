@@ -29,7 +29,7 @@ What actually happened — include the full traceback if there is one.
 
 **Environment**
 
-- `langgraph-okf` version:
+- `okf-agents` version:
 - Python version:
 - `langgraph` / `langchain-core` versions:
 - OS:

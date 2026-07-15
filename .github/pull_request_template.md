@@ -7,7 +7,7 @@
 <!-- How did you verify this change? Check what applies. -->
 
 - [ ] `ruff check .`
-- [ ] `mypy langgraph_okf tests`
+- [ ] `mypy okf_agents tests`
 - [ ] `pytest` (offline unit + integration tests)
 - [ ] `pytest --cov` (coverage still >= 85%)
 - [ ] Added or updated tests for the behavior change

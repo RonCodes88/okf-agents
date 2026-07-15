@@ -1,6 +1,6 @@
 """Deterministic LangChain tools over a loaded OKF bundle.
 
-:func:`create_okf_tools` exposes an :class:`~langgraph_okf.bundle.OKFBundle`
+:func:`create_okf_tools` exposes an :class:`~okf_agents.bundle.OKFBundle`
 as four read-only tools — ``read_concept``, ``search_concepts``,
 ``list_links``, and ``read_index`` — whose outputs are stable plain text
 fit for direct insertion into an LLM context. No model is required to
@@ -17,8 +17,8 @@ from langchain_core.tools import BaseTool, StructuredTool
 from pydantic import BaseModel, Field, ValidationError
 from pydantic.v1 import ValidationError as ValidationErrorV1
 
-from langgraph_okf.bundle import OKFBundle
-from langgraph_okf.exceptions import ConceptNotFoundError
+from okf_agents.bundle import OKFBundle
+from okf_agents.exceptions import ConceptNotFoundError
 
 __all__ = ["create_okf_tools"]
 

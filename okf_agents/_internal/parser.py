@@ -2,7 +2,7 @@
 
 Every function is side-effect free: no filesystem writes and no network
 access. Invalid input raises
-:class:`~langgraph_okf.exceptions.BundleValidationError` keyed by the
+:class:`~okf_agents.exceptions.BundleValidationError` keyed by the
 root-relative source path so the bundle loader can aggregate failures.
 """
 
@@ -17,8 +17,8 @@ from typing import Any
 import yaml
 from pydantic import ValidationError
 
-from langgraph_okf.exceptions import BundleValidationError
-from langgraph_okf.models import BundleIndex, Concept, ConceptFrontmatter, LinkEdge
+from okf_agents.exceptions import BundleValidationError
+from okf_agents.models import BundleIndex, Concept, ConceptFrontmatter, LinkEdge
 
 __all__ = [
     "extract_internal_links",

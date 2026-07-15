@@ -1,4 +1,4 @@
-"""Shared pytest fixtures for the langgraph-okf test suite."""
+"""Shared pytest fixtures for the okf-agents test suite."""
 
 from __future__ import annotations
 
@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from langgraph_okf.bundle import OKFBundle
+from okf_agents.bundle import OKFBundle
 
 FIXTURES_DIR = Path(__file__).parent / "fixtures"
 

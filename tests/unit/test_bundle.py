@@ -7,8 +7,8 @@ from pathlib import Path
 
 import pytest
 
-from langgraph_okf.bundle import OKFBundle
-from langgraph_okf.exceptions import (
+from okf_agents.bundle import OKFBundle
+from okf_agents.exceptions import (
     BundleNotFoundError,
     BundleValidationError,
     ConceptNotFoundError,

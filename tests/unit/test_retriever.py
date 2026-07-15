@@ -11,8 +11,8 @@ from langchain_core.documents import Document
 from langchain_core.embeddings import Embeddings
 from langchain_core.vectorstores import VectorStore
 
-from langgraph_okf.bundle import OKFBundle
-from langgraph_okf.retriever import OKFGraphRetriever, OKFRetriever, concept_to_document
+from okf_agents.bundle import OKFBundle
+from okf_agents.retriever import OKFGraphRetriever, OKFRetriever, concept_to_document
 
 pytestmark = pytest.mark.unit
 

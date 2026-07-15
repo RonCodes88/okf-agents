@@ -7,8 +7,8 @@ separately.
 
 ## 1. PyPI name
 
-- [x] Verified `langgraph-okf` is unclaimed on PyPI (checked
-      `https://pypi.org/pypi/langgraph-okf/json` on 2026-07-14 → 404, not
+- [x] Verified `okf-agents` is unclaimed on PyPI (checked
+      `https://pypi.org/pypi/okf-agents/json` on 2026-07-14 → 404, not
       registered).
 - [ ] Maintainer: claim the name by publishing `0.1.0` through the
       [release workflow](../.github/workflows/release.yml) once the
@@ -68,4 +68,4 @@ Send only after `0.1.0` is actually published to PyPI and CI is green on
 - [ ] Ship changelog entries for real, user-visible changes on a regular
       cadence; do not fabricate release activity.
 - [ ] Keep `docs/api-reference.md` and the README's public API map in
-      sync with `langgraph_okf/__init__.py` on every release.
+      sync with `okf_agents/__init__.py` on every release.

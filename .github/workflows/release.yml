@@ -36,7 +36,7 @@ jobs:
     # approval even after the tag is pushed. See docs/launch-checklist.md.
     environment:
       name: release
-      url: https://pypi.org/project/langgraph-okf/
+      url: https://pypi.org/project/okf-agents/
     permissions:
       # id-token: write is required for PyPI trusted publishing (OIDC); no
       # API token is ever stored as a secret in this repository.

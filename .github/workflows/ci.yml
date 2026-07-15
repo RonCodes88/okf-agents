@@ -23,10 +23,10 @@ jobs:
         with:
           python-version: "3.11"
       # mypy checks tests/ too, which imports pytest, so the typecheck extra
-      # alone is not enough here even though it's enough for langgraph_okf/.
+      # alone is not enough here even though it's enough for okf_agents/.
       - run: pip install -e ".[dev]"
       - run: ruff check .
-      - run: mypy langgraph_okf tests
+      - run: mypy okf_agents tests
 
   test:
     name: Test (Python ${{ matrix.python-version }})
@@ -90,7 +90,7 @@ jobs:
           python -m venv /tmp/wheel-env
           /tmp/wheel-env/bin/pip install dist/*.whl
           /tmp/wheel-env/bin/python -c "
-          import langgraph_okf as pkg
+          import okf_agents as pkg
           for name in pkg.__all__:
               assert hasattr(pkg, name), f'{name} missing from package namespace'
           print('OK:', pkg.__version__, '-', len(pkg.__all__), 'public names')

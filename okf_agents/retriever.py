@@ -1,4 +1,4 @@
-"""LangChain retrievers backed by :class:`~langgraph_okf.bundle.OKFBundle`.
+"""LangChain retrievers backed by :class:`~okf_agents.bundle.OKFBundle`.
 
 :class:`OKFRetriever` wraps the bundle's deterministic lexical search
 behind LangChain's synchronous ``BaseRetriever`` protocol, and
@@ -19,9 +19,9 @@ from langchain_core.retrievers import BaseRetriever
 from langchain_core.vectorstores import VectorStore
 from pydantic import ConfigDict, Field
 
-from langgraph_okf.bundle import OKFBundle
-from langgraph_okf.exceptions import ConceptNotFoundError
-from langgraph_okf.models import Concept
+from okf_agents.bundle import OKFBundle
+from okf_agents.exceptions import ConceptNotFoundError
+from okf_agents.models import Concept
 
 __all__ = ["OKFGraphRetriever", "OKFRetriever", "concept_to_document"]
 

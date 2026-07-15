@@ -13,23 +13,23 @@ import re
 from pathlib import Path
 from typing import Literal
 
-from langgraph_okf._internal.graph_utils import (
+from okf_agents._internal.graph_utils import (
     breadth_first_reachable,
     build_adjacency,
     merge_adjacency,
 )
-from langgraph_okf._internal.parser import (
+from okf_agents._internal.parser import (
     extract_internal_links,
     parse_bundle_index,
     parse_concept,
     synthesize_bundle_index,
 )
-from langgraph_okf.exceptions import (
+from okf_agents.exceptions import (
     BundleNotFoundError,
     BundleValidationError,
     ConceptNotFoundError,
 )
-from langgraph_okf.models import BundleIndex, Concept, LinkEdge
+from okf_agents.models import BundleIndex, Concept, LinkEdge
 
 __all__ = ["OKFBundle"]
 
