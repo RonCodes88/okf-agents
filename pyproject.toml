@@ -24,6 +24,10 @@ keywords = [
     "open-knowledge-format",
     "llm-tools",
     "markdown-rag",
+    "obsidian",
+    "notion",
+    "wiki",
+    "runbooks",
 ]
 classifiers = [
     "Development Status :: 3 - Alpha",

@@ -94,6 +94,113 @@ metadata is always canonical and current, even if the store's copy is
 stale relative to the bundle on disk. `expand_hops=0` disables expansion
 entirely and returns only the entry hits, unchanged.
 
+## A zero-extra-dependency example
+
+You don't need `chromadb` or any other optional package to try
+`OKFGraphRetriever` end to end. It's tempting to reach for
+`langchain_core.vectorstores.InMemoryVectorStore` plus
+`langchain_core.embeddings.DeterministicFakeEmbedding` — both ship inside
+`langchain-core`, already a hard dependency of this library — but as of
+`langchain-core` 1.x, both `InMemoryVectorStore.similarity_search` (its
+cosine-similarity helper) and `DeterministicFakeEmbedding` (its random
+generator) call into `numpy` unconditionally, even though `numpy` is not a
+declared dependency of `langchain-core`. Without it installed separately
+(`pip install numpy`), that pairing raises `NameError: name 'np' is not
+defined` the moment you call `.invoke(...)`.
+
+If you'd rather not add `numpy` at all, a ~30-line pure-Python
+`VectorStore` and `Embeddings` pair works just as well for a demo or for
+offline tests — deterministic bag-of-words vectors and real cosine
+similarity, no model, no network, no numpy:
+
+```python
+import hashlib
+import math
+import re
+from typing import Any
+
+from langchain_core.documents import Document
+from langchain_core.embeddings import Embeddings
+from langchain_core.vectorstores import VectorStore
+
+from okf_agents import OKFBundle, OKFGraphRetriever, sync_bundle_to_vector_store
+
+
+class HashingEmbeddings(Embeddings):
+    """Deterministic bag-of-words embedding. No model, no network, no numpy."""
+
+    def __init__(self, dimensions: int = 64) -> None:
+        self.dimensions = dimensions
+
+    def embed_documents(self, texts: list[str]) -> list[list[float]]:
+        return [self._embed(text) for text in texts]
+
+    def embed_query(self, text: str) -> list[float]:
+        return self._embed(text)
+
+    def _embed(self, text: str) -> list[float]:
+        vector = [0.0] * self.dimensions
+        for token in re.findall(r"\w+", text.casefold()):
+            digest = hashlib.sha256(token.encode("utf-8")).hexdigest()
+            vector[int(digest, 16) % self.dimensions] += 1.0
+        norm = math.sqrt(sum(c * c for c in vector))
+        return [c / norm for c in vector] if norm else vector
+
+
+def _cosine(a: list[float], b: list[float]) -> float:
+    dot = sum(x * y for x, y in zip(a, b, strict=True))
+    na, nb = math.sqrt(sum(x * x for x in a)), math.sqrt(sum(y * y for y in b))
+    return dot / (na * nb) if na and nb else 0.0
+
+
+class InMemoryPurePythonVectorStore(VectorStore):
+    """Minimal VectorStore with real cosine-similarity search, no numpy."""
+
+    def __init__(self, embedding: Embeddings) -> None:
+        self.embedding = embedding
+        self._docs: dict[str, Document] = {}
+        self._vectors: dict[str, list[float]] = {}
+
+    def add_documents(self, documents: list[Document], **kwargs: Any) -> list[str]:
+        ids: list[str] = kwargs["ids"]
+        vectors = self.embedding.embed_documents([d.page_content for d in documents])
+        for doc_id, document, vector in zip(ids, documents, vectors, strict=True):
+            self._docs[doc_id] = Document(
+                page_content=document.page_content, metadata=dict(document.metadata), id=doc_id
+            )
+            self._vectors[doc_id] = vector
+        return list(ids)
+
+    def get_by_ids(self, ids: list[str]) -> list[Document]:
+        return [self._docs[doc_id] for doc_id in ids if doc_id in self._docs]
+
+    def similarity_search(self, query: str, k: int = 4, **kwargs: Any) -> list[Document]:
+        query_vector = self.embedding.embed_query(query)
+        scored = sorted(
+            ((_cosine(query_vector, v), doc_id) for doc_id, v in self._vectors.items()),
+            key=lambda item: (-item[0], item[1]),
+        )
+        return [self._docs[doc_id] for _, doc_id in scored[:k]]
+
+    @classmethod
+    def from_texts(cls, texts, embedding, metadatas=None, **kwargs):
+        raise NotImplementedError
+
+
+bundle = OKFBundle.load("./my_bundle")
+vector_store = InMemoryPurePythonVectorStore(HashingEmbeddings())
+sync_bundle_to_vector_store(bundle, vector_store)
+
+retriever = OKFGraphRetriever(bundle=bundle, vector_store=vector_store, top_k=3, expand_hops=1)
+docs = retriever.invoke("order belongs to a customer")
+```
+
+This is a toy store meant for demos and offline tests, not production —
+swap in Chroma, pgvector, or another real store (see above) once you need
+persistence, scale, or a real embedding model. If you'd rather use
+`InMemoryVectorStore` + `DeterministicFakeEmbedding` from `langchain-core`
+directly, just remember to `pip install numpy` first.
+
 ## Document metadata contract
 
 Both `OKFRetriever` (keyword search) and `OKFGraphRetriever` (semantic

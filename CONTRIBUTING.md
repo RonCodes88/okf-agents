@@ -53,9 +53,8 @@ skip cleanly when those are unset. See [docs/testing.md](docs/testing.md).
 - Keep the two required runtime dependencies (`pydantic`, `pyyaml`) plus
   `langgraph`/`langchain-core` as the only hard dependencies; provider SDKs
   and vector-store packages stay optional.
-- See [docs/tasks/00-shared-contracts.md](docs/tasks/00-shared-contracts.md)
-  for the implementation contracts this project follows where the original
-  specification is ambiguous.
+- See [docs/concepts.md](docs/concepts.md) for the implementation contracts
+  this project follows where the original OKF specification is ambiguous.
 
 ## Reporting bugs and requesting features
 
