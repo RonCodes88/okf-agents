@@ -62,7 +62,9 @@ class OKFRetriever(BaseRetriever):
 
     Delegates to :meth:`OKFBundle.search`, so results follow the bundle's
     weighted lexical ranking: descending score, then concept ID. Use the
-    inherited public ``invoke`` API to retrieve documents.
+    inherited public ``invoke`` API to retrieve documents; pass ``top_k``
+    to ``invoke`` to override the constructor default for one call, e.g.
+    ``retriever.invoke(query, top_k=1)``.
     """
 
     model_config = ConfigDict(arbitrary_types_allowed=True)
@@ -71,9 +73,13 @@ class OKFRetriever(BaseRetriever):
     top_k: int = Field(default=5, ge=1)
 
     def _get_relevant_documents(
-        self, query: str, *, run_manager: CallbackManagerForRetrieverRun
+        self,
+        query: str,
+        *,
+        run_manager: CallbackManagerForRetrieverRun,
+        top_k: int | None = None,
     ) -> list[Document]:
-        concepts = self.bundle.search(query, top_k=self.top_k)
+        concepts = self.bundle.search(query, top_k=top_k if top_k is not None else self.top_k)
         return [
             concept_to_document(concept, bundle_root=self.bundle.root) for concept in concepts
         ]
@@ -87,7 +93,12 @@ class OKFGraphRetriever(BaseRetriever):
     links. Results are deduplicated by concept ID with entry hits first,
     followed by expanded concepts in distance, then concept-ID order.
     Every returned ``Document`` is rehydrated from the bundle so its
-    metadata is canonical regardless of what the store persisted.
+    metadata is canonical regardless of what the store persisted. Pass
+    ``top_k`` to ``invoke`` to override the constructor default for one
+    call, e.g. ``retriever.invoke(query, top_k=1)`` — this only affects
+    how many entry hits are requested from ``vector_store``; graph
+    expansion can still return more than ``top_k`` documents in total,
+    since that's the point of expanding through the link graph.
     """
 
     model_config = ConfigDict(arbitrary_types_allowed=True)
@@ -146,9 +157,14 @@ class OKFGraphRetriever(BaseRetriever):
         return expanded
 
     def _get_relevant_documents(
-        self, query: str, *, run_manager: CallbackManagerForRetrieverRun
+        self,
+        query: str,
+        *,
+        run_manager: CallbackManagerForRetrieverRun,
+        top_k: int | None = None,
     ) -> list[Document]:
-        hits = self.vector_store.similarity_search(query, k=self.top_k)
+        effective_top_k = top_k if top_k is not None else self.top_k
+        hits = self.vector_store.similarity_search(query, k=effective_top_k)
         entry_ids = self._entry_concept_ids(hits)
         concept_ids = [*entry_ids, *self._expand(entry_ids)]
         return [

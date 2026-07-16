@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `OKFRetriever` and `OKFGraphRetriever` now accept an optional `top_k`
+  keyword argument on `.invoke()`, overriding the constructor default for
+  one call (e.g. `retriever.invoke(query, top_k=1)`), matching LangChain's
+  standard per-invocation result-count convention.
+
 ### Fixed
 
 - Raised the declared `langgraph` floor from `>=0.2` to `>=0.2.71`. The
