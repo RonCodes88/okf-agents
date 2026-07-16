@@ -5,9 +5,7 @@ This page explains the data model `okf-agents` builds from an
 derived, how the root index works, how links resolve, and how lexical
 search ranks results. It documents the implementation contracts this
 library follows, which clarify a few points the draft OKF v0.1
-specification leaves ambiguous — see
-[docs/tasks/00-shared-contracts.md](tasks/00-shared-contracts.md) for the
-full list.
+specification leaves ambiguous.
 
 ## What is a concept?
 

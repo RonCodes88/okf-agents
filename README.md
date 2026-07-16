@@ -180,7 +180,7 @@ LangChain `VectorStore` that supports ID-based lookup:
 ```text
 sync_bundle_to_vector_store(bundle, vector_store)  # idempotent upsert
 
-retriever = OKFGraphRetriever(bundle, vector_store, top_k=3, expand_hops=1)
+retriever = OKFGraphRetriever(bundle=bundle, vector_store=vector_store, top_k=3, expand_hops=1)
 docs = retriever.invoke("order belongs")
 # → concepts/orders + concepts/customers (reached via the link graph)
 ```
