@@ -15,7 +15,7 @@ from okf_agents.retriever import OKFGraphRetriever, OKFRetriever
 from okf_agents.router import create_okf_router
 from okf_agents.tools import create_okf_tools
 
-__version__ = "0.1.2"
+__version__ = "0.2.0"
 
 __all__ = [
     "BundleIndex",
