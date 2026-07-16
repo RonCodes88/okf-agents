@@ -20,7 +20,7 @@ from langgraph.graph import END, START, StateGraph
 from pydantic import Field
 
 from okf_agents.bundle import OKFBundle
-from okf_agents.navigator import NavigatorState, create_okf_navigator
+from okf_agents.navigator import NavigatorState, create_okf_navigator, index_token_cost
 
 pytestmark = pytest.mark.unit
 
@@ -33,6 +33,8 @@ STATE_KEYS = {
     "answer",
     "citations",
     "traversal_path",
+    "degraded",
+    "degraded_steps",
 }
 
 
@@ -183,6 +185,13 @@ class TestConfigValidation:
         navigator = create_okf_navigator(chain_bundle, model)
         with pytest.raises(ValueError, match="question"):
             navigator.invoke(cast(NavigatorState, state))
+
+    def test_token_budget_below_index_cost_raises(self, chain_bundle: OKFBundle) -> None:
+        model = ScriptedChatModel(responses=[])
+        floor = index_token_cost(chain_bundle)
+        assert floor > 1, "fixture index must cost more than 1 token for this test to bite"
+        with pytest.raises(ValueError, match="index's fixed cost"):
+            create_okf_navigator(chain_bundle, model, token_budget=floor - 1)
 
 
 class TestProgressiveFlow:
@@ -343,15 +352,43 @@ class TestExhaustiveFlow:
 
 
 class TestModelOutputFallbacks:
-    def test_malformed_plan_falls_back_to_lexical_candidates(
+    def test_malformed_plan_reads_nothing_and_is_flagged_degraded(
+        self, chain_bundle: OKFBundle
+    ) -> None:
+        model = ScriptedChatModel(responses=["not json at all", answer_json("Nothing read.")])
+        navigator = create_okf_navigator(chain_bundle, model)
+        result = navigator.invoke({"question": "alpha"})
+        assert result["visited"] == []
+        assert result["traversal_path"] == ["index"]
+        assert result["answer"] == "Nothing read."
+        assert result["degraded"] is True
+        assert result["degraded_steps"] == ["plan"]
+        assert len(model.calls) == 2
+
+    def test_wrong_typed_plan_concept_ids_reads_nothing_and_is_flagged(
         self, chain_bundle: OKFBundle
     ) -> None:
         model = ScriptedChatModel(
-            responses=["not json at all", decide_json(True), answer_json("Alpha.")]
+            responses=[
+                json.dumps({"concept_ids": "concepts/a"}),
+                answer_json("Nothing read."),
+            ]
         )
         navigator = create_okf_navigator(chain_bundle, model)
         result = navigator.invoke({"question": "alpha"})
-        assert result["visited"][0] == "concepts/a"
+        assert result["visited"] == []
+        assert result["degraded"] is True
+        assert result["degraded_steps"] == ["plan"]
+
+    def test_empty_plan_concept_ids_reads_nothing_without_degrading(
+        self, chain_bundle: OKFBundle
+    ) -> None:
+        model = ScriptedChatModel(responses=[plan_json(), answer_json("Nothing read.")])
+        navigator = create_okf_navigator(chain_bundle, model)
+        result = navigator.invoke({"question": "alpha"})
+        assert result["visited"] == []
+        assert result["degraded"] is False
+        assert result["degraded_steps"] == []
 
     def test_unknown_plan_ids_are_dropped(self, chain_bundle: OKFBundle) -> None:
         model = ScriptedChatModel(
@@ -365,19 +402,19 @@ class TestModelOutputFallbacks:
         result = navigator.invoke({"question": "alpha?"})
         assert result["visited"] == ["concepts/a"]
 
-    def test_all_unknown_plan_ids_fall_back_to_lexical(
+    def test_all_unknown_plan_ids_read_nothing_without_degrading(
         self, chain_bundle: OKFBundle
     ) -> None:
         model = ScriptedChatModel(
-            responses=[
-                plan_json("concepts/ghost", "nope"),
-                decide_json(True),
-                answer_json("Alpha."),
-            ]
+            responses=[plan_json("concepts/ghost", "nope"), answer_json("Nothing read.")]
         )
         navigator = create_okf_navigator(chain_bundle, model)
         result = navigator.invoke({"question": "alpha"})
-        assert result["visited"][0] == "concepts/a"
+        assert result["visited"] == []
+        assert result["traversal_path"] == ["index"]
+        assert result["degraded"] is False
+        assert result["degraded_steps"] == []
+        assert len(model.calls) == 2
 
     def test_malformed_decide_terminates_to_generate(self, chain_bundle: OKFBundle) -> None:
         model = ScriptedChatModel(
@@ -387,6 +424,8 @@ class TestModelOutputFallbacks:
         result = navigator.invoke({"question": "alpha?"})
         assert result["visited"] == ["concepts/a"]
         assert result["answer"] == "Alpha."
+        assert result["degraded"] is True
+        assert result["degraded_steps"] == ["decide"]
         assert len(model.calls) == 3
 
     def test_invalid_decide_picks_fall_back_to_link_candidates(
@@ -448,6 +487,21 @@ class TestGeneration:
         result = navigator.invoke({"question": "alpha?"})
         assert result["answer"] == "Plain text answer."
         assert result["citations"] == []
+        assert result["degraded"] is True
+        assert result["degraded_steps"] == ["generate"]
+
+    def test_clean_run_is_never_flagged_degraded(self, chain_bundle: OKFBundle) -> None:
+        model = ScriptedChatModel(
+            responses=[
+                plan_json("concepts/a"),
+                decide_json(True),
+                answer_json("Alpha.", "concepts/a"),
+            ]
+        )
+        navigator = create_okf_navigator(chain_bundle, model)
+        result = navigator.invoke({"question": "alpha?"})
+        assert result["degraded"] is False
+        assert result["degraded_steps"] == []
 
     def test_fenced_json_answer_is_parsed(self, chain_bundle: OKFBundle) -> None:
         fenced = f"```json\n{answer_json('Alpha.', 'concepts/a')}\n```"
@@ -575,10 +629,15 @@ class TestBudgets:
 
     def test_index_consuming_budget_skips_planning(self, chain_bundle: OKFBundle) -> None:
         model = ScriptedChatModel(responses=[answer_json("Budget spent.")])
-        navigator = create_okf_navigator(chain_bundle, model, token_budget=1)
+        # token_budget set to exactly the index's fixed cost: the smallest
+        # valid budget (construction requires token_budget >= this floor,
+        # see test_token_budget_below_index_cost_raises) that still forces
+        # every concept read to be over budget, so planning is skipped.
+        floor = index_token_cost(chain_bundle)
+        navigator = create_okf_navigator(chain_bundle, model, token_budget=floor)
         result = navigator.invoke({"question": "alpha?"})
         assert result["visited"] == []
-        assert result["tokens_used"] >= 1
+        assert result["tokens_used"] == floor
         assert len(model.calls) == 1
 
     def test_token_estimator_is_injectable(self, chain_bundle: OKFBundle) -> None:

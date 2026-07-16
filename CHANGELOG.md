@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `NavigatorState` gains `degraded: bool` and `degraded_steps: list[str]`,
+  set whenever `create_okf_navigator`'s `plan`, `decide`, or `generate`
+  step's model response fails schema validation, so callers can tell a
+  grounded answer from unparsed model text substituted verbatim into
+  `answer`.
+- `index_token_cost(bundle, token_estimator=None)` in `okf_agents.navigator`
+  computes a bundle's fixed, unavoidable index token cost up front, for
+  choosing a `token_budget` with headroom for at least one concept read.
 - Eager `bundle` argument validation on `create_okf_tools`,
   `create_okf_router`, and `create_okf_navigator`: passing anything other
   than an `OKFBundle` now raises `TypeError` immediately at construction,
@@ -64,6 +72,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `BundleNotFoundError` now distinguishes a missing path from a path that
   exists but is not a directory, via a new `.reason` attribute
   (`"missing"` or `"not_a_directory"`) and a message that matches.
+- `create_okf_navigator`'s `plan` step no longer falls back to a
+  bundle-wide lexical search when the model's response is malformed,
+  wrong-typed, empty, or names only unknown concept IDs. Previously this
+  fallback could read all the way up to `max_concepts` on a single bad
+  response with no model confirmation, the opposite of the budget
+  system's fail-safe intent; it now reads nothing that round and
+  proceeds to `generate`, consistent with how a malformed `decide`
+  response has always been handled.
+- `create_okf_navigator` now raises `ValueError` at construction time if
+  `token_budget` is less than the bundle index's fixed token cost,
+  instead of silently returning a `tokens_used` that exceeds the
+  configured `token_budget` before a single concept is read.
 
 ### Changed
 
