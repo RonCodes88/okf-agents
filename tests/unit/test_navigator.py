@@ -493,7 +493,8 @@ class TestGeneration:
         assert result["citations"] == ["concepts/a"]
 
     def test_empty_bundle_still_generates_answer(self, tmp_path: Path) -> None:
-        bundle = OKFBundle.load(tmp_path)
+        with pytest.warns(UserWarning, match="no concept files"):
+            bundle = OKFBundle.load(tmp_path)
         model = ScriptedChatModel(responses=[answer_json("Nothing to read.")])
         navigator = create_okf_navigator(bundle, model)
         result = navigator.invoke({"question": "anything?"})

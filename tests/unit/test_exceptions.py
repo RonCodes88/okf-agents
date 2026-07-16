@@ -37,7 +37,15 @@ def test_all_exceptions_inherit_from_okf_error(exc: OKFError) -> None:
 def test_bundle_not_found_preserves_path() -> None:
     exc = BundleNotFoundError("/data/kb")
     assert exc.path == "/data/kb"
+    assert exc.reason == "missing"
     assert str(exc) == "OKF bundle not found: /data/kb"
+
+
+def test_bundle_not_found_not_a_directory_reason() -> None:
+    exc = BundleNotFoundError("/data/kb/index.md", reason="not_a_directory")
+    assert exc.path == "/data/kb/index.md"
+    assert exc.reason == "not_a_directory"
+    assert str(exc) == "OKF bundle path exists but is not a directory: /data/kb/index.md"
 
 
 def test_bundle_validation_error_sorts_failed_files() -> None:

@@ -10,6 +10,7 @@ list so callers cannot mutate bundle internals.
 from __future__ import annotations
 
 import re
+import warnings
 from pathlib import Path
 from typing import Literal
 
@@ -36,6 +37,7 @@ __all__ = ["OKFBundle"]
 _RESERVED_FILENAMES = frozenset({"index.md", "log.md"})
 _ROOT_INDEX = "index.md"
 _DIRECTIONS = ("out", "in", "both")
+_ON_ERROR_MODES = ("raise", "skip")
 
 # Search field weights per the shared contracts: title > tags > description > body.
 _TITLE_WEIGHT = 4
@@ -58,34 +60,62 @@ class OKFBundle:
         edges_from: dict[str, list[LinkEdge]],
         edges_to: dict[str, list[LinkEdge]],
         index: BundleIndex,
+        skipped_files: dict[str, str] | None = None,
     ) -> None:
         self._root = root
         self._concepts = concepts
         self._edges_from = edges_from
         self._edges_to = edges_to
         self._index = index
+        self._skipped_files = dict(skipped_files) if skipped_files else {}
         all_edges = [edge for edges in edges_from.values() for edge in edges]
         self._out_adjacency, self._in_adjacency = build_adjacency(all_edges)
         self._both_adjacency = merge_adjacency(self._out_adjacency, self._in_adjacency)
 
     @classmethod
-    def load(cls, path: str | Path) -> OKFBundle:
+    def load(
+        cls,
+        path: str | Path,
+        *,
+        on_error: Literal["raise", "skip"] = "raise",
+    ) -> OKFBundle:
         """Eagerly load the bundle rooted at ``path``.
 
         Every concept file (any ``.md`` except reserved ``index.md`` and
-        ``log.md`` at any depth) is parsed up front and validation
-        failures are aggregated into one error. A root ``index.md`` is
-        parsed when present and synthesized in memory otherwise.
+        ``log.md`` at any depth) is parsed up front. A root ``index.md``
+        is parsed when present and synthesized in memory otherwise.
+
+        By default (``on_error="raise"``), any invalid file aggregates
+        into one :class:`BundleValidationError` and nothing loads. With
+        ``on_error="skip"``, invalid files (including an invalid root
+        ``index.md``) are excluded instead: the bundle loads from
+        whatever files are valid, and the excluded paths and reasons are
+        available afterwards via :attr:`skipped_files`. A link to a
+        skipped concept becomes an unresolved edge, the same as a link to
+        a concept that never existed.
+
+        A bundle that ends up with zero concepts (no matching files, or
+        every file skipped) emits a :class:`UserWarning` rather than
+        failing silently, since this usually indicates a mistyped path.
+
+        Args:
+            path: The bundle root directory.
+            on_error: ``"raise"`` (default) or ``"skip"``.
 
         Raises:
             BundleNotFoundError: If ``path`` does not exist, is not a
                 directory, or cannot be read.
-            BundleValidationError: If any concept file is invalid, keyed
-                by stable root-relative paths.
+            BundleValidationError: If ``on_error="raise"`` and any concept
+                file is invalid, keyed by stable root-relative paths.
+            ValueError: If ``on_error`` is not ``"raise"`` or ``"skip"``.
         """
+        if on_error not in _ON_ERROR_MODES:
+            raise ValueError(f"on_error must be one of {_ON_ERROR_MODES}, got {on_error!r}")
         root = Path(path).resolve()
-        if not root.is_dir():
+        if not root.exists():
             raise BundleNotFoundError(str(path))
+        if not root.is_dir():
+            raise BundleNotFoundError(str(path), reason="not_a_directory")
         try:
             concept_files = sorted(
                 (
@@ -118,9 +148,18 @@ class OKFBundle:
             concepts[concept.id] = concept
 
         index = cls._load_index(root, concepts, failures)
-        if failures:
+        if failures and on_error == "raise":
             raise BundleValidationError(failures)
-        assert index is not None  # index parsing only fails alongside a failure entry
+        if index is None:
+            # Either no index.md was present, or it was invalid and
+            # on_error="skip" tolerated that failure: synthesize from
+            # whatever concepts loaded successfully.
+            index = synthesize_bundle_index(list(concepts.values()))
+
+        if not concepts:
+            warnings.warn(
+                f"OKF bundle at {root} contains no concept files", UserWarning, stacklevel=2
+            )
 
         edges_from: dict[str, list[LinkEdge]] = {}
         edges_to: dict[str, list[LinkEdge]] = {}
@@ -143,6 +182,7 @@ class OKFBundle:
             edges_from=edges_from,
             edges_to=edges_to,
             index=index,
+            skipped_files=failures,
         )
 
     @staticmethod
@@ -175,6 +215,18 @@ class OKFBundle:
     def concept_count(self) -> int:
         """Number of loaded concepts."""
         return len(self._concepts)
+
+    @property
+    def skipped_files(self) -> dict[str, str]:
+        """Root-relative paths of files excluded by ``on_error="skip"``.
+
+        Maps each skipped path to the reason it was excluded, sorted the
+        same way as :attr:`BundleValidationError.failed_files`. Always
+        empty when the bundle was loaded with the default
+        ``on_error="raise"``, since any failure would have raised instead
+        of producing a loaded bundle.
+        """
+        return dict(self._skipped_files)
 
     def get(self, concept_id: str) -> Concept:
         """Return the concept with the given ID.

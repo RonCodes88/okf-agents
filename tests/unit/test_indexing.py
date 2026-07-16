@@ -189,7 +189,9 @@ class TestClassification:
     def test_empty_bundle_returns_zero_counts(
         self, tmp_path: Path, store: FakeVectorStore
     ) -> None:
-        result = sync_bundle_to_vector_store(OKFBundle.load(tmp_path), store)
+        with pytest.warns(UserWarning, match="no concept files"):
+            empty_bundle = OKFBundle.load(tmp_path)
+        result = sync_bundle_to_vector_store(empty_bundle, store)
         assert (result.added, result.updated, result.skipped, result.failed) == (0, 0, 0, 0)
         assert result.errors == []
         assert store.storage == {}

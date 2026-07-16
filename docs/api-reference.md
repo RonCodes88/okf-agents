@@ -14,12 +14,21 @@ The entry point for everything else in the library. Immutable once
 loaded; every collection-returning method returns a new list, so callers
 cannot mutate bundle internals.
 
-- `OKFBundle.load(path: str | Path) -> OKFBundle` — eagerly parse every
-  concept file under `path`, aggregating all validation failures into one
-  `BundleValidationError`. Raises `BundleNotFoundError` if `path` is not a
-  readable directory.
+- `OKFBundle.load(path: str | Path, *, on_error: Literal["raise", "skip"] = "raise") -> OKFBundle` —
+  eagerly parse every concept file under `path`. With the default
+  `on_error="raise"`, all validation failures aggregate into one
+  `BundleValidationError` and nothing loads. With `on_error="skip"`,
+  invalid files (including an invalid root `index.md`) are excluded
+  instead — the bundle loads from whatever is valid, and excluded paths
+  are reported via `.skipped_files`. Raises `BundleNotFoundError` if
+  `path` is not a readable directory, and `ValueError` for an unknown
+  `on_error`. Emits a `UserWarning` if the loaded bundle ends up with zero
+  concepts.
 - `.root -> Path` — the resolved bundle root.
 - `.concept_count -> int`
+- `.skipped_files -> dict[str, str]` — root-relative path -> reason for
+  every file excluded by `on_error="skip"`; always empty under the
+  default `on_error="raise"`.
 - `.get(concept_id: str) -> Concept` — raises `ConceptNotFoundError` if
   absent.
 - `.index() -> BundleIndex` — the parsed or synthesized root index.
@@ -55,7 +64,8 @@ All derive from `OKFError`, so callers can catch one base type.
 
 - `OKFError` — base class.
 - `BundleNotFoundError` — bundle root missing, not a directory, or
-  unreadable. Carries `.path`.
+  unreadable. Carries `.path` and `.reason` (`"missing"` or
+  `"not_a_directory"`), each with a distinct message.
 - `BundleValidationError` — one or more concept files are invalid.
   Carries `.failed_files: dict[str, str]` (root-relative path -> reason).
 - `ConceptNotFoundError` — a concept ID is not in the bundle. Carries
