@@ -108,10 +108,14 @@ retrievers — rather than failing later on first use.
   the metadata contract.
 - `OKFRetriever(bundle: OKFBundle, top_k: int = 5)` — a `BaseRetriever`
   over `OKFBundle.search`. Use the inherited `.invoke(query)`. Requires no
-  vector-store package.
+  vector-store package. Pass `top_k` to `.invoke()` to override the
+  constructor default for one call, e.g. `retriever.invoke(query, top_k=1)`.
 - `OKFGraphRetriever(bundle: OKFBundle, vector_store: VectorStore, top_k: int = 5, expand_hops: int = 1, expand_direction: Literal["out", "in", "both"] = "out")` —
   a `BaseRetriever` that expands vector-store hits through the bundle's
-  link graph; see [vector-stores.md](vector-stores.md).
+  link graph; see [vector-stores.md](vector-stores.md). Pass `top_k` to
+  `.invoke()` to override the constructor default for one call — this
+  only bounds how many entry hits are requested from `vector_store`;
+  graph expansion can still return more than `top_k` documents overall.
 
 ## `okf_agents.router`
 

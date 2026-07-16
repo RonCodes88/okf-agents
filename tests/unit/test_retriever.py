@@ -44,6 +44,16 @@ class TestInvocation:
         retriever = OKFRetriever(bundle=bundle, top_k=2)
         assert len(retriever.invoke("orders")) == 2
 
+    def test_invoke_time_top_k_overrides_constructor_default(self, bundle: OKFBundle) -> None:
+        retriever = OKFRetriever(bundle=bundle, top_k=2)
+        assert len(retriever.invoke("orders", top_k=1)) == 1
+
+    def test_invoke_time_top_k_falls_back_to_constructor_default(
+        self, bundle: OKFBundle
+    ) -> None:
+        retriever = OKFRetriever(bundle=bundle, top_k=2)
+        assert len(retriever.invoke("orders")) == 2
+
     def test_results_follow_bundle_search_ordering(self, retriever: OKFRetriever) -> None:
         results = retriever.invoke("orders")
         assert [document.metadata["concept_id"] for document in results] == [
@@ -185,6 +195,12 @@ class TestGraphRetrieverEntryHits:
         store = ScriptedVectorStore([hit(bundle, "concepts/orders")])
         OKFGraphRetriever(bundle=bundle, vector_store=store, top_k=3).invoke("payments query")
         assert store.calls == [("payments query", 3)]
+
+    def test_invoke_time_top_k_overrides_constructor_default(self, bundle: OKFBundle) -> None:
+        store = ScriptedVectorStore([hit(bundle, "concepts/orders")])
+        retriever = OKFGraphRetriever(bundle=bundle, vector_store=store, top_k=3)
+        retriever.invoke("payments query", top_k=1)
+        assert store.calls == [("payments query", 1)]
 
     def test_no_hits_returns_empty_list(self, bundle: OKFBundle) -> None:
         assert graph_retriever(bundle, []).invoke("q") == []
