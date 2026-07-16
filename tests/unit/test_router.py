@@ -188,13 +188,30 @@ class TestClassifierRouting:
             node({"query": "Orders"})
 
 
+class TestConstructorValidation:
+    @pytest.mark.parametrize("bad_bundle", [None, "not a bundle", 42, object()])
+    def test_rejects_non_bundle_immediately(self, bad_bundle: object) -> None:
+        with pytest.raises(TypeError, match="OKFBundle"):
+            create_okf_router(bad_bundle)  # type: ignore[arg-type]
+
+
 class TestNodeContract:
     @pytest.mark.parametrize("query", ["", "   "])
-    def test_empty_query_raises_value_error(self, bundle: OKFBundle, query: str) -> None:
+    def test_empty_query_falls_back_to_heuristic_without_raising(
+        self, bundle: OKFBundle, query: str
+    ) -> None:
         classifier = StubLLM()
         node = create_okf_router(bundle, classifier=classifier)
-        with pytest.raises(ValueError, match="query"):
-            node({"query": query})
+        assert node({"query": query}) == {"route": "bundle"}
+        assert classifier.prompts == []
+
+    @pytest.mark.parametrize("query", ["", "   "])
+    def test_empty_query_routes_to_vector_when_store_present(
+        self, bundle: OKFBundle, vector_store: StubVectorStore, query: str
+    ) -> None:
+        classifier = StubLLM()
+        node = create_okf_router(bundle, vector_store=vector_store, classifier=classifier)
+        assert node({"query": query}) == {"route": "vector"}
         assert classifier.prompts == []
 
     def test_update_contains_only_route_and_state_is_untouched(self, bundle: OKFBundle) -> None:

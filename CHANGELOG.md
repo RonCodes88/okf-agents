@@ -9,6 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Eager `bundle` argument validation on `create_okf_tools`,
+  `create_okf_router`, and `create_okf_navigator`: passing anything other
+  than an `OKFBundle` now raises `TypeError` immediately at construction,
+  instead of surfacing as an unwrapped `AttributeError` on first tool
+  invocation (`create_okf_tools`) or a confusing `AttributeError` inside
+  internal comprehensions (`create_okf_router`, `create_okf_navigator`).
+  `OKFRetriever` and `OKFGraphRetriever` already rejected a bad `bundle`
+  (and, for the graph retriever, a bad `vector_store`) immediately via
+  Pydantic's `arbitrary_types_allowed` validation; this is now covered by
+  tests so it can't regress silently.
 - Obsidian-style `[[wikilink]]` support as a second, first-class internal
   link syntax alongside standard Markdown links. `[[target]]`,
   `[[target|Display text]]`, `[[target#Heading]]`, and `[[target^blockid]]`
@@ -54,6 +64,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `BundleNotFoundError` now distinguishes a missing path from a path that
   exists but is not a directory, via a new `.reason` attribute
   (`"missing"` or `"not_a_directory"`) and a message that matches.
+
+### Changed
+
+- **Breaking:** `create_okf_router`'s node no longer raises `ValueError`
+  for an empty or whitespace-only `query`. It now returns a deterministic
+  route from the heuristic (without invoking the classifier), matching
+  the graceful, never-raise-on-bad-input contract already used by
+  `create_okf_tools`. Code that specifically caught `ValueError` around a
+  router node to handle empty queries will no longer see that exception.
+
+### Deprecated
+
+- `LinkResolutionError` is deprecated. It was never actually raised by
+  the library — unresolvable links are represented by
+  `LinkEdge(resolved=False)` instead — so its presence in the public API
+  contradicted its own documentation. It remains importable from
+  `okf_agents` for backward compatibility, but constructing it now emits
+  a `DeprecationWarning`, and it will be removed in a future release.
 
 ## [0.1.2] - 2026-07-15
 

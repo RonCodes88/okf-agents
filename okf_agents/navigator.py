@@ -223,10 +223,13 @@ def create_okf_navigator(
             callable, defaulting to ``max(1, len(text) // 4)``.
 
     Raises:
+        TypeError: If ``bundle`` is not an :class:`OKFBundle` instance.
         ValueError: If ``max_hops`` or ``max_concepts`` is negative,
             ``token_budget`` is less than 1, or ``strategy`` is unknown.
             An empty or missing ``question`` raises at invocation time.
     """
+    if not isinstance(bundle, OKFBundle):
+        raise TypeError(f"bundle must be an OKFBundle, got {type(bundle).__name__!r}")
     if max_hops < 0:
         raise ValueError(f"max_hops must be non-negative, got {max_hops}")
     if max_concepts < 0:

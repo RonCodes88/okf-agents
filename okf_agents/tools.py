@@ -170,7 +170,15 @@ def create_okf_tools(bundle: OKFBundle) -> list[BaseTool]:
     ``read_index``, in that order. All tools are synchronous, offline,
     and deterministic; outputs are plain text and never expose absolute
     filesystem paths.
+
+    Raises:
+        TypeError: If ``bundle`` is not an :class:`OKFBundle` instance.
+            Checked eagerly so a bad ``bundle`` fails at construction
+            time rather than surfacing as an unwrapped ``AttributeError``
+            on the first tool invocation.
     """
+    if not isinstance(bundle, OKFBundle):
+        raise TypeError(f"bundle must be an OKFBundle, got {type(bundle).__name__!r}")
 
     def read_concept(concept_id: str) -> str:
         return _read_concept(bundle, concept_id)

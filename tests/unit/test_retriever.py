@@ -10,6 +10,7 @@ import pytest
 from langchain_core.documents import Document
 from langchain_core.embeddings import Embeddings
 from langchain_core.vectorstores import VectorStore
+from pydantic import ValidationError
 
 from okf_agents.bundle import OKFBundle
 from okf_agents.retriever import OKFGraphRetriever, OKFRetriever, concept_to_document
@@ -58,6 +59,11 @@ class TestInvocation:
     def test_invalid_top_k_raises_value_error(self, bundle: OKFBundle) -> None:
         with pytest.raises(ValueError):
             OKFRetriever(bundle=bundle, top_k=0)
+
+    @pytest.mark.parametrize("bad_bundle", [None, "not a bundle", 42])
+    def test_rejects_non_bundle_immediately(self, bad_bundle: object) -> None:
+        with pytest.raises(ValidationError, match="OKFBundle"):
+            OKFRetriever(bundle=bad_bundle)  # type: ignore[arg-type]
 
 
 class TestDocumentContract:
@@ -280,6 +286,18 @@ class TestGraphRetrieverExpansion:
     ) -> None:
         with pytest.raises(ValueError):
             graph_retriever(bundle, [], **fields)
+
+    @pytest.mark.parametrize("bad_bundle", [None, "not a bundle", 42])
+    def test_rejects_non_bundle_immediately(self, bundle: OKFBundle, bad_bundle: object) -> None:
+        with pytest.raises(ValidationError, match="OKFBundle"):
+            OKFGraphRetriever(bundle=bad_bundle, vector_store=ScriptedVectorStore([]))  # type: ignore[arg-type]
+
+    @pytest.mark.parametrize("bad_store", [None, "not a store", 42])
+    def test_rejects_non_vector_store_immediately(
+        self, bundle: OKFBundle, bad_store: object
+    ) -> None:
+        with pytest.raises(ValidationError, match="VectorStore"):
+            OKFGraphRetriever(bundle=bundle, vector_store=bad_store)  # type: ignore[arg-type]
 
 
 class TestGraphRetrieverRehydration:

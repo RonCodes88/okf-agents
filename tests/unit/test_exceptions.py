@@ -1,5 +1,7 @@
 """Unit tests for the okf-agents exception hierarchy."""
 
+import warnings
+
 import pytest
 
 from okf_agents import __version__
@@ -14,6 +16,13 @@ from okf_agents.exceptions import (
 pytestmark = pytest.mark.unit
 
 
+def _link_resolution_error(source_id: str, target: str) -> LinkResolutionError:
+    """Construct a ``LinkResolutionError`` for fixtures, without the deprecation noise."""
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", DeprecationWarning)
+        return LinkResolutionError(source_id, target)
+
+
 def test_version() -> None:
     parts = __version__.split(".")
     assert len(parts) == 3
@@ -26,7 +35,7 @@ def test_version() -> None:
         BundleNotFoundError("/missing/bundle"),
         BundleValidationError({"a.md": "bad yaml"}),
         ConceptNotFoundError("concepts/orders"),
-        LinkResolutionError("concepts/orders", "../missing.md"),
+        _link_resolution_error("concepts/orders", "../missing.md"),
     ],
 )
 def test_all_exceptions_inherit_from_okf_error(exc: OKFError) -> None:
@@ -86,7 +95,13 @@ def test_concept_not_found_preserves_concept_id() -> None:
 
 
 def test_link_resolution_error_preserves_source_and_target() -> None:
-    exc = LinkResolutionError("concepts/orders", "../missing.md")
+    with pytest.warns(DeprecationWarning):
+        exc = LinkResolutionError("concepts/orders", "../missing.md")
     assert exc.source_id == "concepts/orders"
     assert exc.target == "../missing.md"
     assert str(exc) == "Cannot resolve link '../missing.md' from concept 'concepts/orders'"
+
+
+def test_link_resolution_error_is_deprecated() -> None:
+    with pytest.warns(DeprecationWarning, match="deprecated"):
+        LinkResolutionError("a", "b")

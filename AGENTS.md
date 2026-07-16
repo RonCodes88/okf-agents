@@ -32,12 +32,18 @@ from okf_agents import (
     create_okf_navigator,
     sync_bundle_to_vector_store,
     OKFError, BundleNotFoundError, BundleValidationError,
-    ConceptNotFoundError, LinkResolutionError,
+    ConceptNotFoundError, LinkResolutionError,  # LinkResolutionError is deprecated, never raised
 )
 ```
 
 Do NOT import from submodules like `okf_agents.bundle` or
 `okf_agents.models`. Always import from `okf_agents`.
+
+`create_okf_tools`, `create_okf_router`, `create_okf_navigator`,
+`OKFRetriever`, and `OKFGraphRetriever` all validate their `bundle`
+argument eagerly and raise immediately (`TypeError`, or
+`pydantic.ValidationError` for the two retrievers) if it is not an
+`OKFBundle` — they never wait until first use to fail.
 
 ## Patterns
 

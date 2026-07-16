@@ -7,6 +7,7 @@ inputs as attributes and render deterministic human-readable messages.
 
 from __future__ import annotations
 
+import warnings
 from collections.abc import Sequence
 from typing import Literal
 
@@ -72,9 +73,26 @@ class ConceptNotFoundError(OKFError):
 
 
 class LinkResolutionError(OKFError):
-    """Raised when an internal link cannot be resolved on demand."""
+    """Deprecated: never raised by this library.
+
+    Unresolvable internal links are tolerated, not raised: they surface as
+    :class:`~okf_agents.models.LinkEdge` instances with ``resolved=False``
+    from :meth:`OKFBundle.links_from` and :meth:`OKFBundle.backlinks`, and
+    every consumer in this package (agent tools, the navigator) is built
+    to handle that case rather than encounter this exception. This class
+    is kept only so existing ``from okf_agents import LinkResolutionError``
+    imports keep working; it is deprecated and will be removed in a future
+    release. Instantiating it emits a ``DeprecationWarning``.
+    """
 
     def __init__(self, source_id: str, target: str) -> None:
+        warnings.warn(
+            "LinkResolutionError is deprecated and never raised by okf-agents; "
+            "unresolvable links are represented by LinkEdge(resolved=False) "
+            "instead. It will be removed in a future release.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
         self.source_id = source_id
         self.target = target
         super().__init__(f"Cannot resolve link {target!r} from concept {source_id!r}")
