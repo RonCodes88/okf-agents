@@ -142,7 +142,7 @@ class TestLinkEdge:
 
     def test_invalid_link_kind_rejected(self) -> None:
         with pytest.raises(ValidationError):
-            LinkEdge(source_id="a", target_id="b", anchor_text="B", link_kind="notion")
+            LinkEdge(source_id="a", target_id="b", anchor_text="B", link_kind="notion")  # type: ignore[arg-type]
 
     def test_ambiguous_defaults_to_false(self) -> None:
         edge = LinkEdge(source_id="a", target_id="b", anchor_text="B")
