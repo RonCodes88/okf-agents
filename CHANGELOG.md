@@ -9,6 +9,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Obsidian-style `[[wikilink]]` support as a second, first-class internal
+  link syntax alongside standard Markdown links. `[[target]]`,
+  `[[target|Display text]]`, `[[target#Heading]]`, and `[[target^blockid]]`
+  are now recognized and resolved by case-insensitive filename, title, or
+  frontmatter `aliases` match — the same way Obsidian itself resolves
+  them — rather than by path. A `[[folder/Note]]`-style path-qualified
+  wikilink resolves against the full concept ID as an explicit
+  disambiguation escape hatch. Previously, wikilinks silently produced
+  zero graph edges with no signal that anything was missed, which made an
+  imported Obsidian vault's link graph look far sparser than the real
+  wiki. `LinkEdge` gained `link_kind` (`"markdown"` | `"wiki"`) and
+  `ambiguous` fields; `ambiguous=True` marks a wikilink whose lookup key
+  matches more than one concept, which is reported rather than silently
+  resolved to one candidate. `ConceptFrontmatter` gained an `aliases`
+  field (Obsidian's own convention). See "Links and resolution" in
+  `docs/concepts.md` for the full resolution contract.
 - `OKFBundle.load(path, on_error="skip")` for partial/lenient bundle
   loading: invalid concept files (and an invalid root `index.md`) are
   excluded instead of blocking the whole load, so a bundle with some

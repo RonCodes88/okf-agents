@@ -24,6 +24,7 @@ class TestConceptFrontmatter:
         assert fm.description is None
         assert fm.resource is None
         assert fm.tags == []
+        assert fm.aliases == []
         assert fm.timestamp is None
         assert fm.extra == {}
 
@@ -35,12 +36,14 @@ class TestConceptFrontmatter:
             description="Order fact table",
             resource="warehouse.orders",
             tags=["sales", "core"],
+            aliases=["Orders Table", "Sales Orders"],
             timestamp=timestamp,
         )
         assert fm.title == "Orders"
         assert fm.description == "Order fact table"
         assert fm.resource == "warehouse.orders"
         assert fm.tags == ["sales", "core"]
+        assert fm.aliases == ["Orders Table", "Sales Orders"]
         assert fm.timestamp == timestamp
         assert fm.extra == {}
 
@@ -66,6 +69,9 @@ class TestConceptFrontmatter:
 
     def test_tags_none_normalizes_to_empty_list(self) -> None:
         assert ConceptFrontmatter.model_validate({"type": "note", "tags": None}).tags == []
+
+    def test_aliases_none_normalizes_to_empty_list(self) -> None:
+        assert ConceptFrontmatter.model_validate({"type": "note", "aliases": None}).aliases == []
 
     @pytest.mark.parametrize("bad_type", ["", "   ", "\t\n"])
     def test_empty_type_rejected(self, bad_type: str) -> None:
@@ -125,6 +131,28 @@ class TestLinkEdge:
     def test_resolved_can_be_set(self) -> None:
         edge = LinkEdge(source_id="a", target_id="b", anchor_text="B", resolved=True)
         assert edge.resolved is True
+
+    def test_link_kind_defaults_to_markdown(self) -> None:
+        edge = LinkEdge(source_id="a", target_id="b", anchor_text="B")
+        assert edge.link_kind == "markdown"
+
+    def test_link_kind_can_be_wiki(self) -> None:
+        edge = LinkEdge(source_id="a", target_id="b", anchor_text="B", link_kind="wiki")
+        assert edge.link_kind == "wiki"
+
+    def test_invalid_link_kind_rejected(self) -> None:
+        with pytest.raises(ValidationError):
+            LinkEdge(source_id="a", target_id="b", anchor_text="B", link_kind="notion")
+
+    def test_ambiguous_defaults_to_false(self) -> None:
+        edge = LinkEdge(source_id="a", target_id="b", anchor_text="B")
+        assert edge.ambiguous is False
+
+    def test_ambiguous_can_be_set(self) -> None:
+        edge = LinkEdge(
+            source_id="a", target_id="b", anchor_text="B", link_kind="wiki", ambiguous=True
+        )
+        assert edge.ambiguous is True
 
 
 class TestBundleIndex:

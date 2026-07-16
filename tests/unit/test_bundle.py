@@ -383,3 +383,140 @@ class TestImmutability:
         results = bundle.search("customer")
         results.clear()
         assert bundle.search("customer") != []
+
+
+class TestWikilinks:
+    """Obsidian-style [[wikilink]] resolution by filename/title/alias."""
+
+    def test_resolves_by_filename(self, tmp_path: Path) -> None:
+        write_bundle(
+            tmp_path,
+            {
+                "customers.md": "---\ntype: note\n---\nSee [[Orders]].\n",
+                "orders.md": "---\ntype: note\ntitle: Orders\n---\nBody.\n",
+            },
+        )
+        bundle = OKFBundle.load(tmp_path)
+        edges = bundle.links_from("customers")
+        assert [(e.target_id, e.resolved, e.link_kind, e.ambiguous) for e in edges] == [
+            ("orders", True, "wiki", False)
+        ]
+
+    def test_resolves_by_title_when_it_differs_from_filename(self, tmp_path: Path) -> None:
+        write_bundle(
+            tmp_path,
+            {
+                "customers.md": "---\ntype: note\n---\nSee [[Order Concept]].\n",
+                "orders.md": "---\ntype: note\ntitle: Order Concept\n---\nBody.\n",
+            },
+        )
+        bundle = OKFBundle.load(tmp_path)
+        edge = bundle.links_from("customers")[0]
+        assert edge.target_id == "orders"
+        assert edge.resolved is True
+
+    def test_resolves_by_alias(self, tmp_path: Path) -> None:
+        write_bundle(
+            tmp_path,
+            {
+                "customers.md": "---\ntype: note\n---\nSee [[Clients]].\n",
+                "orders.md": (
+                    "---\ntype: note\ntitle: Orders\naliases: [Clients]\n---\nBody.\n"
+                ),
+            },
+        )
+        bundle = OKFBundle.load(tmp_path)
+        edge = bundle.links_from("customers")[0]
+        assert edge.target_id == "orders"
+        assert edge.resolved is True
+
+    def test_case_insensitive_resolution(self, tmp_path: Path) -> None:
+        write_bundle(
+            tmp_path,
+            {
+                "customers.md": "---\ntype: note\n---\nSee [[ORDERS]].\n",
+                "orders.md": "---\ntype: note\ntitle: Orders\n---\nBody.\n",
+            },
+        )
+        bundle = OKFBundle.load(tmp_path)
+        edge = bundle.links_from("customers")[0]
+        assert edge.target_id == "orders"
+        assert edge.resolved is True
+
+    def test_ambiguous_title_is_reported_not_guessed(self, tmp_path: Path) -> None:
+        write_bundle(
+            tmp_path,
+            {
+                "customers.md": "---\ntype: note\n---\nSee [[Orders]].\n",
+                "concepts/orders.md": "---\ntype: note\ntitle: Orders\n---\nBody.\n",
+                "archive/orders.md": "---\ntype: note\ntitle: Old Orders\n---\nBody.\n",
+            },
+        )
+        bundle = OKFBundle.load(tmp_path)
+        edge = bundle.links_from("customers")[0]
+        assert edge.resolved is False
+        assert edge.ambiguous is True
+        assert edge.link_kind == "wiki"
+
+    def test_path_qualified_wikilink_disambiguates(self, tmp_path: Path) -> None:
+        write_bundle(
+            tmp_path,
+            {
+                "customers.md": "---\ntype: note\n---\nSee [[concepts/orders]].\n",
+                "concepts/orders.md": "---\ntype: note\ntitle: Orders\n---\nBody.\n",
+                "archive/orders.md": "---\ntype: note\ntitle: Old Orders\n---\nBody.\n",
+            },
+        )
+        bundle = OKFBundle.load(tmp_path)
+        edge = bundle.links_from("customers")[0]
+        assert edge.target_id == "concepts/orders"
+        assert edge.resolved is True
+        assert edge.ambiguous is False
+
+    def test_unresolved_wikilink_is_tolerated_like_broken_markdown_link(
+        self, tmp_path: Path
+    ) -> None:
+        write_bundle(
+            tmp_path,
+            {"customers.md": "---\ntype: note\n---\nSee [[Nowhere]].\n"},
+        )
+        bundle = OKFBundle.load(tmp_path)
+        edge = bundle.links_from("customers")[0]
+        assert edge.resolved is False
+        assert edge.ambiguous is False
+        assert edge.target_id == "nowhere"
+
+    def test_wiki_backlinks_populate_like_markdown_backlinks(self, tmp_path: Path) -> None:
+        write_bundle(
+            tmp_path,
+            {
+                "customers.md": "---\ntype: note\n---\nSee [[Orders]].\n",
+                "orders.md": "---\ntype: note\ntitle: Orders\n---\nBody.\n",
+            },
+        )
+        bundle = OKFBundle.load(tmp_path)
+        backlinks = bundle.backlinks("orders")
+        assert [(e.source_id, e.link_kind) for e in backlinks] == [("customers", "wiki")]
+
+    def test_resolved_wikilink_neighbor_is_reachable(self, tmp_path: Path) -> None:
+        write_bundle(
+            tmp_path,
+            {
+                "customers.md": "---\ntype: note\n---\nSee [[Orders]].\n",
+                "orders.md": "---\ntype: note\ntitle: Orders\n---\nBody.\n",
+            },
+        )
+        bundle = OKFBundle.load(tmp_path)
+        assert [c.id for c in bundle.neighbors("customers")] == ["orders"]
+
+    def test_ambiguous_wikilink_does_not_create_a_traversable_edge(self, tmp_path: Path) -> None:
+        write_bundle(
+            tmp_path,
+            {
+                "customers.md": "---\ntype: note\n---\nSee [[Orders]].\n",
+                "concepts/orders.md": "---\ntype: note\ntitle: Orders\n---\nBody.\n",
+                "archive/orders.md": "---\ntype: note\ntitle: Old Orders\n---\nBody.\n",
+            },
+        )
+        bundle = OKFBundle.load(tmp_path)
+        assert bundle.neighbors("customers") == []

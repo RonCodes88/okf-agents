@@ -48,12 +48,16 @@ cannot mutate bundle internals.
 Pure Pydantic data contracts; validate structure only.
 
 - `ConceptFrontmatter` — `type: str` (required, non-empty), `title`,
-  `description`, `resource`, `tags: list[str]`, `timestamp: datetime | None`,
-  `extra: dict[str, Any]` for unrecognized keys.
+  `description`, `resource`, `tags: list[str]`, `aliases: list[str]`
+  (Obsidian's alias convention; participates in wikilink resolution),
+  `timestamp: datetime | None`, `extra: dict[str, Any]` for unrecognized
+  keys.
 - `Concept` — `id`, `path` (absolute), `frontmatter`, `body` (Markdown
   without the frontmatter block), `outbound_links: list[str]`, `raw`
   (exact file contents).
-- `LinkEdge` — `source_id`, `target_id`, `anchor_text`, `resolved: bool`.
+- `LinkEdge` — `source_id`, `target_id`, `anchor_text`, `resolved: bool`,
+  `link_kind: Literal["markdown", "wiki"]`, `ambiguous: bool` (set only
+  when a wikilink's lookup key matches more than one concept).
 - `BundleIndex` — `title`, `description`, `body`, `concept_ids: list[str]`.
 - `SyncResult` — `added`, `updated`, `skipped`, `failed` (all `int`),
   `errors: list[str]`.

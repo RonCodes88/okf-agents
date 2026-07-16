@@ -83,7 +83,11 @@ class OKFBundle:
 
         Every concept file (any ``.md`` except reserved ``index.md`` and
         ``log.md`` at any depth) is parsed up front. A root ``index.md``
-        is parsed when present and synthesized in memory otherwise.
+        is parsed when present and synthesized in memory otherwise. Both
+        standard Markdown links and Obsidian-style wikilinks are resolved
+        into the link graph once every concept is loaded, since wikilink
+        resolution needs the whole bundle's filenames/titles/aliases, not
+        just the linking file's path.
 
         By default (``on_error="raise"``), any invalid file aggregates
         into one :class:`BundleValidationError` and nothing loads. With
@@ -161,13 +165,18 @@ class OKFBundle:
                 f"OKF bundle at {root} contains no concept files", UserWarning, stacklevel=2
             )
 
+        wiki_index = cls._build_wiki_index(concepts)
         edges_from: dict[str, list[LinkEdge]] = {}
         edges_to: dict[str, list[LinkEdge]] = {}
         for concept_id in sorted(concepts):
             concept = concepts[concept_id]
             source = f"{concept_id}.md"
             edges = [
-                edge.model_copy(update={"resolved": edge.target_id in concepts})
+                (
+                    cls._resolve_wikilink(edge, wiki_index)
+                    if edge.link_kind == "wiki"
+                    else edge.model_copy(update={"resolved": edge.target_id in concepts})
+                )
                 for edge in extract_internal_links(
                     concept.body, source_id=concept_id, source=source
                 )
@@ -205,6 +214,55 @@ class OKFBundle:
         except BundleValidationError as exc:
             failures.update(exc.failed_files)
             return None
+
+    @staticmethod
+    def _build_wiki_index(concepts: dict[str, Concept]) -> dict[str, set[str]]:
+        """Build the case-insensitive lookup index for wikilink resolution.
+
+        Obsidian resolves ``[[wikilinks]]`` by filename or title, not by
+        path, so this indexes every loaded concept under all of its
+        casefolded lookup keys: its full concept ID, its bare filename
+        (the ID's last path segment), its frontmatter ``title``, and each
+        of its frontmatter ``aliases`` (a convention Obsidian users rely on
+        heavily for renaming-safe links). Indexing the full concept ID too
+        gives ``[[folder/Note]]``-style path-qualified wikilinks — the
+        same escape hatch Obsidian itself writes to disambiguate a
+        collision — a way to resolve deterministically even when the bare
+        title or filename is ambiguous.
+
+        A wikilink resolves only when exactly one concept ID is registered
+        under its lookup key; see :meth:`_resolve_wikilink`.
+        """
+        index: dict[str, set[str]] = {}
+        for concept_id, concept in concepts.items():
+            keys = {concept_id.casefold(), concept_id.rsplit("/", 1)[-1].casefold()}
+            if concept.frontmatter.title:
+                keys.add(concept.frontmatter.title.casefold())
+            keys.update(alias.casefold() for alias in concept.frontmatter.aliases)
+            for key in keys:
+                index.setdefault(key, set()).add(concept_id)
+        return index
+
+    @staticmethod
+    def _resolve_wikilink(edge: LinkEdge, wiki_index: dict[str, set[str]]) -> LinkEdge:
+        """Resolve one wiki-kind edge against the bundle's wiki index.
+
+        ``edge.target_id`` starts out as the casefolded lookup key emitted
+        by the parser. Exactly one matching concept resolves the edge to
+        that concept's real ID; zero matches leaves the edge unresolved
+        (a genuinely broken wikilink, same tolerance as a broken Markdown
+        link); more than one match marks the edge ``ambiguous`` instead of
+        silently guessing a target — the collision is real and the bundle
+        author should disambiguate (e.g. with a ``[[folder/Note]]``-style
+        path-qualified link, or a unique ``aliases:`` entry) rather than
+        having the library pick one candidate for them.
+        """
+        candidates = wiki_index.get(edge.target_id, set())
+        if len(candidates) == 1:
+            return edge.model_copy(update={"target_id": next(iter(candidates)), "resolved": True})
+        if len(candidates) > 1:
+            return edge.model_copy(update={"ambiguous": True})
+        return edge
 
     @property
     def root(self) -> Path:
