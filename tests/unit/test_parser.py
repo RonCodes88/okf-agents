@@ -10,6 +10,7 @@ from okf_agents._internal.parser import (
     parse_bundle_index,
     parse_concept,
     parse_frontmatter,
+    parse_wikilink_target,
     split_frontmatter,
     synthesize_bundle_index,
 )
@@ -197,6 +198,13 @@ class TestParseConcept:
         raw = "---\ntype: note\n---\n[Missing](/nowhere/missing.md)\n"
         assert parse(raw).outbound_links == ["nowhere/missing"]
 
+    def test_wikilink_outbound_is_raw_lookup_key_before_bundle_resolution(self) -> None:
+        # parse_concept has no visibility into the rest of the bundle, so a
+        # wikilink's outbound entry is the casefolded lookup key, not yet a
+        # real concept ID; only OKFBundle.load() resolves it.
+        raw = "---\ntype: note\n---\nSee [[Customers]] and [[Customers]] again.\n"
+        assert parse(raw).outbound_links == ["customers"]
+
     def test_file_outside_bundle_root(self) -> None:
         with pytest.raises(BundleValidationError) as excinfo:
             parse_concept(
@@ -323,6 +331,102 @@ class TestExtractInternalLinks:
     def test_empty_anchor_text(self) -> None:
         edges = extract_internal_links("[](/a.md)\n", source_id="src", source="src.md")
         assert [(e.target_id, e.anchor_text) for e in edges] == [("a", "")]
+
+
+class TestParseWikilinkTarget:
+    @pytest.mark.parametrize(
+        ("inner", "expected_key", "expected_display"),
+        [
+            ("Note", "note", "Note"),
+            ("Note|Display Text", "note", "Display Text"),
+            ("Note#Heading", "note", "Note#Heading"),
+            ("Note#Heading|Display", "note", "Display"),
+            ("Note^blockid", "note", "Note^blockid"),
+            ("Note^blockid|Display", "note", "Display"),
+            ("Note.md", "note", "Note.md"),
+            ("NOTE", "note", "NOTE"),
+            ("folder/Note", "folder/note", "folder/Note"),
+            (" Note ", "note", "Note"),
+        ],
+        ids=[
+            "plain",
+            "alias",
+            "heading-anchor",
+            "heading-anchor-with-alias",
+            "block-anchor",
+            "block-anchor-with-alias",
+            "md-suffix-stripped",
+            "case-insensitive-key",
+            "path-qualified",
+            "surrounding-whitespace",
+        ],
+    )
+    def test_split(self, inner: str, expected_key: str, expected_display: str) -> None:
+        assert parse_wikilink_target(inner) == (expected_key, expected_display)
+
+
+class TestExtractWikilinks:
+    def test_plain_wikilink(self) -> None:
+        edges = extract_internal_links("See [[Customers]].\n", source_id="src", source="src.md")
+        assert len(edges) == 1
+        edge = edges[0]
+        assert edge.link_kind == "wiki"
+        assert edge.target_id == "customers"
+        assert edge.anchor_text == "Customers"
+        assert edge.resolved is False
+        assert edge.ambiguous is False
+
+    def test_aliased_wikilink(self) -> None:
+        edges = extract_internal_links(
+            "See [[Customers|our customers]].\n", source_id="src", source="src.md"
+        )
+        assert edges[0].target_id == "customers"
+        assert edges[0].anchor_text == "our customers"
+
+    def test_heading_anchor_points_at_whole_target(self) -> None:
+        edges = extract_internal_links("[[Customers#Contacts]]\n", source_id="src", source="src.md")
+        assert edges[0].target_id == "customers"
+        assert edges[0].anchor_text == "Customers#Contacts"
+
+    def test_block_anchor_points_at_whole_target(self) -> None:
+        edges = extract_internal_links("[[Customers^abc123]]\n", source_id="src", source="src.md")
+        assert edges[0].target_id == "customers"
+
+    def test_case_insensitive_lookup_key(self) -> None:
+        edges = extract_internal_links("[[CUSTOMERS]]\n", source_id="src", source="src.md")
+        assert edges[0].target_id == "customers"
+
+    def test_embeds_are_ignored(self) -> None:
+        edges = extract_internal_links(
+            "![[Embedded Note]] but [[Real Link]]\n", source_id="src", source="src.md"
+        )
+        assert [e.anchor_text for e in edges] == ["Real Link"]
+
+    def test_fenced_code_wikilinks_are_ignored(self) -> None:
+        body = "[[Before]]\n```\n[[Inside Fence]]\n```\n[[After]]\n"
+        edges = extract_internal_links(body, source_id="src", source="src.md")
+        assert [e.target_id for e in edges] == ["before", "after"]
+
+    def test_repeated_wikilinks_keep_every_edge(self) -> None:
+        edges = extract_internal_links("[[A]] then [[A]] again\n", source_id="src", source="src.md")
+        assert [e.target_id for e in edges] == ["a", "a"]
+
+    def test_markdown_and_wikilinks_interleave_in_document_order(self) -> None:
+        body = "[[Wiki First]] then [Markdown](/a.md) then [[Wiki Second]]\n"
+        edges = extract_internal_links(body, source_id="src", source="src.md")
+        assert [(e.link_kind, e.target_id) for e in edges] == [
+            ("wiki", "wiki first"),
+            ("markdown", "a"),
+            ("wiki", "wiki second"),
+        ]
+
+    def test_markdown_link_immediately_before_wikilink(self) -> None:
+        body = "[Markdown](/a.md) [[Wiki]]\n"
+        edges = extract_internal_links(body, source_id="src", source="src.md")
+        assert [(e.link_kind, e.target_id) for e in edges] == [
+            ("markdown", "a"),
+            ("wiki", "wiki"),
+        ]
 
 
 class TestParseBundleIndex:

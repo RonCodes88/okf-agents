@@ -33,11 +33,13 @@ Each order belongs to a [customer](customers.md).
 ```
 
 Recognized frontmatter fields are `type`, `title`, `description`,
-`resource`, `tags`, and `timestamp` (an ISO 8601 datetime). Any other keys
-are preserved in `Concept.frontmatter.extra` rather than being silently
-dropped. A missing or empty `type` makes the file invalid; there is no
-"strict mode" toggle in v0.1, and this is the one validation rule that
-always applies.
+`resource`, `tags`, `aliases`, and `timestamp` (an ISO 8601 datetime). Any
+other keys are preserved in `Concept.frontmatter.extra` rather than being
+silently dropped. A missing or empty `type` makes the file invalid; there
+is no "strict mode" toggle in v0.1, and this is the one validation rule
+that always applies. `aliases` follows Obsidian's own frontmatter
+convention (a list of alternate names for the note) and participates in
+wikilink resolution — see "Links and resolution" below.
 
 Loading a bundle is eager: `OKFBundle.load()` parses every concept file up
 front, and by default (`on_error="raise"`, the default) it is
@@ -100,19 +102,77 @@ step, whether or not the bundle author wrote one.
 
 ## Links and resolution
 
-Internal links are standard inline Markdown links, `[text](target)`,
-where `target` is either **bundle-relative** (starts with `/`, resolved
-against the bundle root) or **file-relative** (resolved against the
-linking file's directory, e.g. `../file.md`). Images, reference-style
+Two internal link syntaxes are recognized, because the two knowledge-base
+tools this library implicitly targets — Obsidian and plain Markdown wikis
+— default to different ones.
+
+**Standard inline Markdown links**, `[text](target)`, where `target` is
+either **bundle-relative** (starts with `/`, resolved against the bundle
+root) or **file-relative** (resolved against the linking file's
+directory, e.g. `../file.md`) — resolution is pure path arithmetic, with
+no knowledge of the rest of the bundle required. Images, reference-style
 links, autolinks, links inside fenced code blocks, fragment-only links
 (`#section`), and external URLs are not treated as graph edges in v0.1.
 
+**Obsidian-style wikilinks**, `[[target]]`, `[[target|Display text]]`,
+`[[target#Heading]]`, and `[[target^blockid]]` — resolution is by
+case-insensitive **filename or title match**, not by path, matching how
+Obsidian itself resolves them: the `target` is looked up against every
+loaded concept's bare filename, its frontmatter `title`, its frontmatter
+`aliases`, and its full concept ID (in that the full ID is indexed too, so
+a path-qualified wikilink like `[[folder/Note]]` — the same style of link
+Obsidian itself writes to disambiguate a collision — always resolves
+deterministically even when the bare title or filename is ambiguous). A
+`#Heading` or `^blockid` suffix and a trailing `.md` are stripped before
+lookup and are not resolved to a location inside the target file: both
+`[[Note]]` and `[[Note#Heading]]` point at the whole `Note` concept, since
+sub-file anchors are outside this library's concept-level granularity.
+When the `target` contains a `|`, the text after it is the display text
+(`anchor_text`); without one, `anchor_text` is the raw target text as
+written, anchor included, matching what Obsidian renders. File/block
+embeds (`![[target]]`) are not treated as links, mirroring how `![...]()`
+image syntax is excluded from Markdown links. `![[embed]]` and Obsidian's
+`[[Note]]` are otherwise unrelated to Notion, whose own Markdown export
+already produces standard `[Page](https://notion.so/Page-<uuid>)` links —
+wikilink-shaped text only shows up in bundles produced by a third-party
+Notion-to-Obsidian converter.
+
+Because wikilink resolution needs to see every concept's filename, title,
+and aliases at once, it only happens once the whole bundle is loaded
+(inside `OKFBundle.load()`); a single concept parsed in isolation (e.g.
+`Concept.outbound_links`) records a wikilink's raw casefolded lookup key,
+not yet a real concept ID.
+
+**Ambiguity is reported, never silently guessed.** If a wikilink's lookup
+key matches more than one loaded concept — e.g. two files both titled
+"Orders" in different folders — the edge is left unresolved and marked
+`ambiguous=True` rather than the library picking one candidate. This
+mirrors that Obsidian's own "shortest path when possible" behavior is
+applied at link-*creation* time inside the app, using vault settings this
+library does not have access to when reading files after the fact;
+picking a candidate here could silently point a reader at the wrong
+concept, which is worse than a link that is visibly unresolved. Bundle
+authors can disambiguate with a path-qualified `[[folder/Note]]` link or a
+unique `aliases:` entry.
+
 Every internal link becomes a `LinkEdge` with `source_id`, `target_id`,
-`anchor_text`, and a `resolved` flag. A link to a concept that does not
-exist in the bundle is kept as an **unresolved** edge (`resolved=False`)
+`anchor_text`, a `resolved` flag, a `link_kind` (`"markdown"` or `"wiki"`),
+and an `ambiguous` flag (always `False` for Markdown links, and for
+wikilinks except the multiple-match case above). A link to a concept that
+does not exist in the bundle — including a wikilink whose lookup key
+matches nothing — is kept as an **unresolved** edge (`resolved=False`)
 rather than being dropped or making the bundle invalid — broken links are
 a normal, tolerated part of a bundle, and tools like `list_links` surface
 them explicitly rather than hiding them.
+
+`BundleIndex.concept_ids` (the root index's link targets, see above) is
+extracted the same way but is never re-resolved against the whole bundle:
+a wikilink in `index.md` is recorded under its raw casefolded lookup key,
+even when the real link graph (`links_from`/`backlinks`/`neighbors` below)
+would resolve or flag it as ambiguous. Consumers that walk the root index
+already tolerate IDs that don't match a loaded concept (a pre-existing
+possibility for broken Markdown links in `index.md`), so this is a
+deliberate, narrow scope boundary rather than an oversight.
 
 `bundle.links_from(concept_id)` and `bundle.backlinks(concept_id)` return
 copies of the outbound/inbound edges for one concept. `bundle.neighbors()`

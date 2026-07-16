@@ -9,7 +9,7 @@ parser and bundle loader.
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field, field_validator
 
@@ -27,6 +27,9 @@ class ConceptFrontmatter(BaseModel):
 
     Standard OKF v0.1 metadata keys are typed fields. Unknown keys are
     stored only in ``extra`` and never duplicate the standard keys.
+    ``aliases`` (Obsidian's ``aliases:`` convention) additionally
+    participate in wikilink resolution alongside filename and title, see
+    :func:`~okf_agents.bundle.OKFBundle._build_wiki_index`.
     """
 
     type: str
@@ -34,6 +37,7 @@ class ConceptFrontmatter(BaseModel):
     description: str | None = None
     resource: str | None = None
     tags: list[str] = Field(default_factory=list)
+    aliases: list[str] = Field(default_factory=list)
     timestamp: datetime | None = None
     extra: dict[str, Any] = Field(default_factory=dict)
 
@@ -44,11 +48,12 @@ class ConceptFrontmatter(BaseModel):
             raise ValueError("must be a non-empty string")
         return value
 
-    @field_validator("tags", mode="before")
+    @field_validator("tags", "aliases", mode="before")
     @classmethod
     def _tags_none_is_empty(cls, value: object) -> object:
-        # A missing YAML value (`tags:`) means "no tags"; scalars such as a
-        # bare string are still rejected by the list[str] annotation.
+        # A missing YAML value (`tags:`/`aliases:`) means "none"; scalars
+        # such as a bare string are still rejected by the list[str]
+        # annotation.
         return [] if value is None else value
 
 
@@ -69,16 +74,25 @@ class Concept(BaseModel):
 
 
 class LinkEdge(BaseModel):
-    """One directed inline-link occurrence between two concepts.
+    """One directed link occurrence between two concepts.
 
     ``resolved`` records whether ``target_id`` names a loaded concept; the
     parser emits edges unresolved and the bundle loader marks them.
+    ``link_kind`` distinguishes standard ``[text](target.md)`` Markdown
+    links from Obsidian-style ``[[target]]`` wikilinks, which resolve by
+    case-insensitive filename/title/alias match rather than by path (see
+    ``docs/concepts.md``). ``ambiguous`` is set only for wikilinks whose
+    lookup key matches more than one concept; such edges are left
+    unresolved rather than guessing a target, and ``ambiguous`` lets
+    callers surface that distinctly from "target does not exist at all".
     """
 
     source_id: str
     target_id: str
     anchor_text: str
     resolved: bool = False
+    link_kind: Literal["markdown", "wiki"] = "markdown"
+    ambiguous: bool = False
 
 
 class BundleIndex(BaseModel):

@@ -26,12 +26,21 @@ __all__ = [
     "parse_bundle_index",
     "parse_concept",
     "parse_frontmatter",
+    "parse_wikilink_target",
     "split_frontmatter",
     "synthesize_bundle_index",
 ]
 
 _FRONTMATTER_DELIMITER = "---"
-_STANDARD_FRONTMATTER_KEYS = ("type", "title", "description", "resource", "tags", "timestamp")
+_STANDARD_FRONTMATTER_KEYS = (
+    "type",
+    "title",
+    "description",
+    "resource",
+    "tags",
+    "aliases",
+    "timestamp",
+)
 _MD_SUFFIX = ".md"
 
 # Standard inline links only: images are excluded by the lookbehind, and
@@ -39,6 +48,11 @@ _MD_SUFFIX = ".md"
 _INLINE_LINK_RE = re.compile(
     r"(?<!!)\[(?P<anchor>[^\]]*)\]\((?P<target>[^()\s]+)(?:\s+\"[^\"]*\")?\)"
 )
+# Obsidian-style wikilinks: [[target]], [[target|Display]],
+# [[target#Heading]], [[target^blockid]]. The lookbehind excludes
+# ![[embed]] file/block embeds, mirroring how "!" excludes image syntax
+# from _INLINE_LINK_RE above.
+_WIKILINK_RE = re.compile(r"(?<!!)\[\[(?P<inner>[^\[\]]+)\]\]")
 _URL_SCHEME_RE = re.compile(r"^[A-Za-z][A-Za-z0-9+.-]*:")
 _FENCE_RE = re.compile(r"^ {0,3}(```|~~~)")
 _H1_RE = re.compile(r"^# +(?P<title>.+?) *#* *$")
@@ -137,16 +151,55 @@ def normalize_link_target(target: str, *, source_id: str, source: str) -> str | 
     return candidate[: -len(_MD_SUFFIX)]
 
 
-def extract_internal_links(body: str, *, source_id: str, source: str) -> list[LinkEdge]:
-    """Extract internal inline Markdown links as unresolved edges.
+def parse_wikilink_target(inner: str) -> tuple[str, str]:
+    """Split one ``[[...]]`` body into ``(lookup_key, display_text)``.
 
-    Returns one :class:`LinkEdge` (``resolved=False``) per link occurrence
-    in document order, retaining repeats so callers can build a multigraph.
-    Image syntax, links inside fenced code blocks, and targets rejected by
+    ``inner`` is the raw text between the double brackets, e.g.
+    ``"Note#Heading|Display"``. A ``|`` splits the target from its display
+    alias; without one, the display text is the raw target as written
+    (anchor included), matching what Obsidian renders. The lookup key
+    drops any ``#heading`` or ``^blockid`` anchor and a trailing ``.md``
+    suffix, then casefolds the result for case-insensitive resolution —
+    anchors are not resolved to a location within the target; both
+    ``[[Note]]`` and ``[[Note#Heading]]`` point at the whole target
+    concept, since sub-file anchors are out of scope for this library's
+    concept-level granularity.
+    """
+    if "|" in inner:
+        target_part, display = inner.split("|", 1)
+    else:
+        target_part, display = inner, inner
+    target_part = target_part.strip()
+    display = display.strip()
+    found = (target_part.find("#"), target_part.find("^"))
+    anchor_index = min((index for index in found if index != -1), default=-1)
+    base = target_part if anchor_index == -1 else target_part[:anchor_index]
+    base = base.strip()
+    if base.casefold().endswith(_MD_SUFFIX):
+        base = base[: -len(_MD_SUFFIX)]
+    return base.casefold(), display
+
+
+def extract_internal_links(body: str, *, source_id: str, source: str) -> list[LinkEdge]:
+    """Extract internal links as unresolved edges, in document order.
+
+    Recognizes two syntaxes: standard inline Markdown links,
+    ``[text](target.md)`` (``link_kind="markdown"``, ``target_id`` is the
+    path-normalized concept ID candidate from
+    :func:`normalize_link_target`), and Obsidian-style wikilinks,
+    ``[[target]]``/``[[target|Display]]``/``[[target#Heading]]``
+    (``link_kind="wiki"``, ``target_id`` is a casefolded lookup key —
+    filename, title, or alias — resolved against the whole bundle later by
+    :class:`~okf_agents.bundle.OKFBundle`, not by this function). Both
+    kinds are returned unresolved (``resolved=False``); repeats are
+    retained so callers can build a multigraph. Image syntax
+    (``![...]()``), file/block embeds (``![[...]]``), links inside fenced
+    code blocks, and Markdown targets rejected by
     :func:`normalize_link_target` are ignored.
 
     Raises:
-        BundleValidationError: If any link target escapes the bundle.
+        BundleValidationError: If any Markdown link target escapes the
+            bundle.
     """
     edges: list[LinkEdge] = []
     fence_marker: str | None = None
@@ -161,18 +214,40 @@ def extract_internal_links(body: str, *, source_id: str, source: str) -> list[Li
             continue
         if fence_marker is not None:
             continue
+        line_matches: list[tuple[int, LinkEdge]] = []
         for match in _INLINE_LINK_RE.finditer(line):
             target_id = normalize_link_target(
                 match.group("target"), source_id=source_id, source=source
             )
             if target_id is not None:
-                edges.append(
-                    LinkEdge(
-                        source_id=source_id,
-                        target_id=target_id,
-                        anchor_text=match.group("anchor"),
+                line_matches.append(
+                    (
+                        match.start(),
+                        LinkEdge(
+                            source_id=source_id,
+                            target_id=target_id,
+                            anchor_text=match.group("anchor"),
+                            link_kind="markdown",
+                        ),
                     )
                 )
+        for match in _WIKILINK_RE.finditer(line):
+            lookup_key, display = parse_wikilink_target(match.group("inner"))
+            if not lookup_key:
+                continue
+            line_matches.append(
+                (
+                    match.start(),
+                    LinkEdge(
+                        source_id=source_id,
+                        target_id=lookup_key,
+                        anchor_text=display,
+                        link_kind="wiki",
+                    ),
+                )
+            )
+        line_matches.sort(key=lambda item: item[0])
+        edges.extend(edge for _, edge in line_matches)
     return edges
 
 
@@ -182,7 +257,11 @@ def parse_concept(raw: str, *, bundle_root: Path, file_path: Path) -> Concept:
     The returned model preserves ``raw`` verbatim, excludes the
     frontmatter delimiters from ``body``, exposes ``path`` as the resolved
     absolute path string, and deduplicates ``outbound_links`` in
-    first-seen order.
+    first-seen order. ``outbound_links`` entries from wikilinks are the
+    raw casefolded lookup key, not yet a real concept ID: resolving those
+    against the rest of the bundle happens only in
+    :meth:`~okf_agents.bundle.OKFBundle.load`, which is the first point
+    with visibility into every concept's filename, title, and aliases.
 
     Raises:
         BundleValidationError: Keyed by the root-relative path when the
