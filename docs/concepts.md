@@ -39,11 +39,30 @@ dropped. A missing or empty `type` makes the file invalid; there is no
 "strict mode" toggle in v0.1, and this is the one validation rule that
 always applies.
 
-Loading a bundle is eager and all-or-nothing: `OKFBundle.load()` parses
-every concept file up front and aggregates every validation failure (bad
-YAML, empty `type`, unreadable files, paths escaping the bundle root) into
-one `BundleValidationError` keyed by stable, bundle-root-relative paths,
+Loading a bundle is eager: `OKFBundle.load()` parses every concept file up
+front, and by default (`on_error="raise"`, the default) it is
+all-or-nothing — every validation failure (bad YAML, empty `type`,
+unreadable files, paths escaping the bundle root) is aggregated into one
+`BundleValidationError` keyed by stable, bundle-root-relative paths,
 rather than failing on the first bad file.
+
+Pass `on_error="skip"` for partial loading of a messy, organically-grown
+bundle: invalid files (concept files and an invalid root `index.md`
+alike) are excluded from the loaded bundle instead of blocking it
+entirely. The bundle loads normally from whatever files are valid; a link
+to an excluded concept simply becomes an unresolved edge, exactly like a
+link to a concept that never existed. The excluded paths and their
+reasons are available afterwards on `bundle.skipped_files` (same shape as
+`BundleValidationError.failed_files`) so they can be surfaced and fixed
+later without blocking on them up front. This does not relax the
+validation rule itself — a missing or empty `type` still makes a file
+invalid, there is still no "strict mode" toggle for *that* rule — it only
+changes what happens to files that fail it.
+
+If a bundle ends up with zero concepts (a typo'd path with no matching
+`.md` files, or every file skipped), `OKFBundle.load()` emits a
+`UserWarning` rather than succeeding silently, since a `concept_count` of
+zero is far more often a mistake than an intentionally empty bundle.
 
 ## Concept IDs
 

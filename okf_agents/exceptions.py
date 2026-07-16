@@ -8,6 +8,7 @@ inputs as attributes and render deterministic human-readable messages.
 from __future__ import annotations
 
 from collections.abc import Sequence
+from typing import Literal
 
 __all__ = [
     "BundleNotFoundError",
@@ -23,11 +24,24 @@ class OKFError(Exception):
 
 
 class BundleNotFoundError(OKFError):
-    """Raised when a bundle root does not exist or is not a directory."""
+    """Raised when a bundle root does not exist or is not a directory.
 
-    def __init__(self, path: str) -> None:
+    Attributes:
+        path: The path that was passed to :meth:`OKFBundle.load`.
+        reason: ``"missing"`` if ``path`` does not exist (or could not be
+            read), ``"not_a_directory"`` if it exists but is a file.
+    """
+
+    def __init__(
+        self, path: str, *, reason: Literal["missing", "not_a_directory"] = "missing"
+    ) -> None:
         self.path = path
-        super().__init__(f"OKF bundle not found: {path}")
+        self.reason = reason
+        if reason == "not_a_directory":
+            message = f"OKF bundle path exists but is not a directory: {path}"
+        else:
+            message = f"OKF bundle not found: {path}"
+        super().__init__(message)
 
 
 class BundleValidationError(OKFError):

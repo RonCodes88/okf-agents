@@ -74,6 +74,119 @@ class TestLoad:
             OKFBundle.load(tmp_path)
         assert sorted(excinfo.value.failed_files) == ["missing-type.md", "nested/bad-yaml.md"]
 
+    def test_missing_path_reason_is_missing(self, tmp_path: Path) -> None:
+        with pytest.raises(BundleNotFoundError) as excinfo:
+            OKFBundle.load(tmp_path / "nowhere")
+        assert excinfo.value.reason == "missing"
+        assert str(excinfo.value) == f"OKF bundle not found: {tmp_path / 'nowhere'}"
+
+    def test_non_directory_path_reason_is_not_a_directory(
+        self, sample_bundle_path: Path
+    ) -> None:
+        file_path = sample_bundle_path / "index.md"
+        with pytest.raises(BundleNotFoundError) as excinfo:
+            OKFBundle.load(file_path)
+        assert excinfo.value.reason == "not_a_directory"
+        assert str(excinfo.value) == (
+            f"OKF bundle path exists but is not a directory: {file_path}"
+        )
+
+    def test_invalid_on_error_raises_value_error(self, sample_bundle_path: Path) -> None:
+        with pytest.raises(ValueError, match="on_error"):
+            OKFBundle.load(sample_bundle_path, on_error="ignore")  # type: ignore[arg-type]
+
+    def test_strict_mode_still_raises_on_bad_files(self, tmp_path: Path) -> None:
+        write_bundle(
+            tmp_path,
+            {
+                "good.md": VALID_CONCEPT,
+                "missing-type.md": "---\ntitle: No type\n---\n",
+            },
+        )
+        with pytest.raises(BundleValidationError) as excinfo:
+            OKFBundle.load(tmp_path, on_error="raise")
+        assert list(excinfo.value.failed_files) == ["missing-type.md"]
+
+    def test_default_on_error_matches_explicit_raise(self, tmp_path: Path) -> None:
+        write_bundle(
+            tmp_path,
+            {"good.md": VALID_CONCEPT, "missing-type.md": "---\ntitle: No type\n---\n"},
+        )
+        with pytest.raises(BundleValidationError):
+            OKFBundle.load(tmp_path)
+
+    def test_skip_mode_loads_good_files_and_reports_bad_ones(self, tmp_path: Path) -> None:
+        write_bundle(
+            tmp_path,
+            {
+                "good.md": VALID_CONCEPT,
+                "missing-type.md": "---\ntitle: No type\n---\n",
+                "nested/bad-yaml.md": "---\ntype: [unclosed\n---\n",
+            },
+        )
+        loaded = OKFBundle.load(tmp_path, on_error="skip")
+        assert loaded.concept_count == 1
+        assert [concept.id for concept in loaded.all_concepts()] == ["good"]
+        assert sorted(loaded.skipped_files) == ["missing-type.md", "nested/bad-yaml.md"]
+
+    def test_skip_mode_skipped_files_empty_when_nothing_skipped(
+        self, sample_bundle_path: Path
+    ) -> None:
+        loaded = OKFBundle.load(sample_bundle_path, on_error="skip")
+        assert loaded.skipped_files == {}
+
+    def test_raise_mode_skipped_files_always_empty(self, bundle: OKFBundle) -> None:
+        assert bundle.skipped_files == {}
+
+    def test_skip_mode_returns_copy_of_skipped_files(self, tmp_path: Path) -> None:
+        write_bundle(tmp_path, {"good.md": VALID_CONCEPT, "bad.md": "---\ntitle: x\n---\n"})
+        loaded = OKFBundle.load(tmp_path, on_error="skip")
+        skipped = loaded.skipped_files
+        skipped["injected.md"] = "not real"
+        assert "injected.md" not in loaded.skipped_files
+
+    def test_skip_mode_invalid_index_is_skipped_and_synthesized(self, tmp_path: Path) -> None:
+        write_bundle(
+            tmp_path,
+            {"a.md": VALID_CONCEPT, "index.md": "# Escapes\n\n[out](../outside.md)\n"},
+        )
+        loaded = OKFBundle.load(tmp_path, on_error="skip")
+        assert "index.md" in loaded.skipped_files
+        index = loaded.index()
+        assert index.title == "Index"
+        assert index.concept_ids == ["a"]
+
+    def test_skip_mode_unresolved_links_to_skipped_concepts(self, tmp_path: Path) -> None:
+        write_bundle(
+            tmp_path,
+            {
+                "a.md": "---\ntype: note\n---\n\nSee [b](b.md).\n",
+                "b.md": "---\ntitle: No type\n---\n",
+            },
+        )
+        loaded = OKFBundle.load(tmp_path, on_error="skip")
+        edges = loaded.links_from("a")
+        assert [(edge.target_id, edge.resolved) for edge in edges] == [("b", False)]
+
+    def test_empty_bundle_warns(self, tmp_path: Path) -> None:
+        with pytest.warns(UserWarning, match="no concept files"):
+            loaded = OKFBundle.load(tmp_path)
+        assert loaded.concept_count == 0
+
+    def test_empty_bundle_after_skipping_everything_warns(self, tmp_path: Path) -> None:
+        write_bundle(tmp_path, {"bad.md": "---\ntitle: No type\n---\n"})
+        with pytest.warns(UserWarning, match="no concept files"):
+            loaded = OKFBundle.load(tmp_path, on_error="skip")
+        assert loaded.concept_count == 0
+        assert "bad.md" in loaded.skipped_files
+
+    def test_non_empty_bundle_does_not_warn(self, sample_bundle_path: Path) -> None:
+        import warnings
+
+        with warnings.catch_warnings():
+            warnings.simplefilter("error")
+            OKFBundle.load(sample_bundle_path)
+
     def test_load_is_deterministic_across_runs(self, sample_bundle_path: Path) -> None:
         first = OKFBundle.load(sample_bundle_path)
         second = OKFBundle.load(sample_bundle_path)

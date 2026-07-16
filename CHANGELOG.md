@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `OKFBundle.load(path, on_error="skip")` for partial/lenient bundle
+  loading: invalid concept files (and an invalid root `index.md`) are
+  excluded instead of blocking the whole load, so a bundle with some
+  malformed frontmatter can still load its valid files. Excluded paths
+  and reasons are available via the new `OKFBundle.skipped_files`
+  property. The default (`on_error="raise"`) is unchanged and remains
+  fully backward compatible.
+- `OKFBundle.load()` now emits a `UserWarning` when the loaded bundle
+  contains zero concepts, instead of succeeding silently — this usually
+  signals a mistyped path.
+- A zero-extra-dependency vector-store example in
+  `docs/vector-stores.md`, using a small pure-Python `VectorStore` +
+  `Embeddings` pair (no `numpy`, no `chromadb`) as an alternative to the
+  Chroma-based example.
+- A few PyPI keywords (`obsidian`, `notion`, `wiki`, `runbooks`)
+  reflecting the library's actual target use cases.
+
 ### Fixed
 
 - README's `OKFGraphRetriever` example used positional arguments, which
@@ -16,15 +35,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `docs/concepts.md` and `CONTRIBUTING.md` — that file was deleted from
   version control before the `0.1.0` release; its content already lives
   inline in `docs/concepts.md`.
-
-### Added
-
-- A zero-extra-dependency vector-store example in
-  `docs/vector-stores.md`, using a small pure-Python `VectorStore` +
-  `Embeddings` pair (no `numpy`, no `chromadb`) as an alternative to the
-  Chroma-based example.
-- A few PyPI keywords (`obsidian`, `notion`, `wiki`, `runbooks`)
-  reflecting the library's actual target use cases.
+- `BundleNotFoundError` now distinguishes a missing path from a path that
+  exists but is not a directory, via a new `.reason` attribute
+  (`"missing"` or `"not_a_directory"`) and a message that matches.
 
 ## [0.1.2] - 2026-07-15
 
