@@ -89,8 +89,18 @@ def create_okf_router(
     Routes needing an absent vector store are coerced to ``bundle``.
 
     The node performs no retrieval, never mutates the incoming state,
-    and returns an update containing only ``route``.
+    and returns an update containing only ``route``. An empty or
+    whitespace-only query never raises: it is routed by the heuristic
+    (which naturally treats it as no exact match) without invoking the
+    classifier, matching the graceful, never-raise-on-bad-input contract
+    used elsewhere in the package (see :mod:`okf_agents.tools`).
+
+    Raises:
+        TypeError: If ``bundle`` is not an :class:`OKFBundle` instance.
     """
+    if not isinstance(bundle, OKFBundle):
+        raise TypeError(f"bundle must be an OKFBundle, got {type(bundle).__name__!r}")
+
     exact_terms = frozenset(
         _normalize(term)
         for concept in bundle.all_concepts()
@@ -106,7 +116,7 @@ def create_okf_router(
     def router_node(state: RouterState) -> dict[str, Route]:
         query = state["query"]
         if not query.strip():
-            raise ValueError("query must be a non-empty string")
+            return {"route": heuristic(query)}
         route: Route | None = None
         if classifier is not None:
             output = classifier.invoke(_CLASSIFIER_PROMPT.format(query=query))

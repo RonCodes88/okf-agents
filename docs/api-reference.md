@@ -74,8 +74,19 @@ All derive from `OKFError`, so callers can catch one base type.
   Carries `.failed_files: dict[str, str]` (root-relative path -> reason).
 - `ConceptNotFoundError` — a concept ID is not in the bundle. Carries
   `.concept_id`.
-- `LinkResolutionError` — an internal link could not be resolved on
-  demand. Carries `.source_id` and `.target`.
+- `LinkResolutionError` **(deprecated, never raised)** — unresolvable
+  internal links are tolerated, not raised: they surface as `LinkEdge`
+  instances with `resolved=False` from `.links_from()`/`.backlinks()`
+  instead. This class is kept only for import compatibility and will be
+  removed in a future release; constructing it emits a
+  `DeprecationWarning`.
+
+Constructors that take a `bundle` argument (`create_okf_tools`,
+`create_okf_router`, `create_okf_navigator`, `OKFRetriever`,
+`OKFGraphRetriever`) validate it eagerly: passing anything other than an
+`OKFBundle` instance raises immediately — `TypeError` for the three
+factory functions, `pydantic.ValidationError` for the two `BaseModel`
+retrievers — rather than failing later on first use.
 
 ## `okf_agents.tools`
 
@@ -86,7 +97,8 @@ All derive from `OKFError`, so callers can catch one base type.
   text (never JSON, never an absolute filesystem path), and require no
   model to construct or call directly. Expected failures (unknown
   concept ID, invalid input) return a string starting with `Error:`
-  rather than raising.
+  rather than raising. Raises `TypeError` immediately if `bundle` is not
+  an `OKFBundle`.
 
 ## `okf_agents.retriever`
 
@@ -113,8 +125,11 @@ All derive from `OKFError`, so callers can catch one base type.
   to `vector` if `vector_store` is given, else `bundle`. With a
   classifier: at most one model call per invocation, with a single
   heuristic fallback on malformed output. A route needing an absent
-  vector store is coerced to `bundle`. Raises `ValueError` on an empty
-  query.
+  vector store is coerced to `bundle`. An empty or whitespace-only query
+  never raises: it is routed by the heuristic without invoking the
+  classifier, the same graceful, never-raise-on-bad-input contract used
+  by `create_okf_tools`. Raises `TypeError` immediately if `bundle` is
+  not an `OKFBundle`.
 
 ## `okf_agents.navigator`
 
@@ -123,7 +138,8 @@ All derive from `OKFError`, so callers can catch one base type.
   `answer`, `citations`, `traversal_path` (all initialized internally).
 - `create_okf_navigator(bundle: OKFBundle, model: BaseLanguageModel, max_hops: int = 3, max_concepts: int = 10, token_budget: int = 8000, strategy: Literal["progressive", "exhaustive"] = "progressive", token_estimator: Callable[[str], int] | None = None) -> CompiledStateGraph` —
   see [navigator-and-budgets.md](navigator-and-budgets.md) for the full
-  behavior contract.
+  behavior contract. Raises `TypeError` immediately if `bundle` is not an
+  `OKFBundle`.
 
 ## `okf_agents.indexing`
 

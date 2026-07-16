@@ -34,6 +34,11 @@ class TestRegistry:
         assert [tool.name for tool in tools] == TOOL_NAMES
         assert all(isinstance(tool, BaseTool) for tool in tools)
 
+    @pytest.mark.parametrize("bad_bundle", [None, "not a bundle", 42, object()])
+    def test_rejects_non_bundle_immediately(self, bad_bundle: object) -> None:
+        with pytest.raises(TypeError, match="OKFBundle"):
+            create_okf_tools(bad_bundle)  # type: ignore[arg-type]
+
     def test_descriptions_are_llm_friendly(self, tools: dict[str, BaseTool]) -> None:
         assert "concept ID" in tools["read_concept"].description
         assert "free-text query" in tools["search_concepts"].description

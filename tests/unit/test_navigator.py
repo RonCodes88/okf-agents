@@ -169,6 +169,12 @@ class TestConfigValidation:
         with pytest.raises(ValueError):
             create_okf_navigator(chain_bundle, model, **overrides)
 
+    @pytest.mark.parametrize("bad_bundle", [None, "not a bundle", 42, object()])
+    def test_rejects_non_bundle_immediately(self, bad_bundle: object) -> None:
+        model = ScriptedChatModel(responses=[])
+        with pytest.raises(TypeError, match="OKFBundle"):
+            create_okf_navigator(bad_bundle, model)  # type: ignore[arg-type]
+
     @pytest.mark.parametrize("state", [{}, {"question": ""}, {"question": "   "}])
     def test_empty_question_raises(
         self, chain_bundle: OKFBundle, state: dict[str, Any]
