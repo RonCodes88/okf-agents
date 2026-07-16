@@ -14,13 +14,15 @@ result = navigator.invoke({"question": "How are payments refunded?"})
 print(result["answer"])
 print(result["citations"])       # concept IDs the answer actually cites
 print(result["traversal_path"])  # ["index", "concepts/payments", ...]
+print(result["degraded"])        # True if any step's output failed to parse
 ```
 
 Invoke it with only `question`; every other `NavigatorState` field
 (`visited`, `context`, `tokens_used`, `hops`, `answer`, `citations`,
-`traversal_path`) is initialized internally and present when the graph
-finishes. An empty question, or a negative/invalid configuration value,
-raises `ValueError` rather than silently doing nothing.
+`traversal_path`, `degraded`, `degraded_steps`) is initialized internally
+and present when the graph finishes. An empty question, or a
+negative/invalid configuration value, raises `ValueError` rather than
+silently doing nothing.
 
 ## The read loop
 
@@ -61,28 +63,94 @@ Token estimation defaults to `max(1, len(text) // 4)` and is injectable
 via `token_estimator=` if you have a real tokenizer and want tighter
 budgeting — no tokenizer dependency is required by default.
 
+### The index has a fixed, unavoidable token cost
+
+The bundle's index is read unconditionally before anything else — there
+is no way to answer without it — so its estimated token cost is charged
+against `token_budget` before a single concept is ever considered.
+`create_okf_navigator` computes this cost eagerly (using the same
+`token_estimator` you pass in, or the default) and raises `ValueError` at
+construction time if `token_budget` is smaller than it, rather than
+silently letting `tokens_used` exceed the configured cap once the graph
+runs. This keeps the "hard cap, never exceeded" guarantee true for the
+whole run, index included, instead of only for the concept-read loop.
+
+Use `index_token_cost(bundle, token_estimator=None)` to compute this
+fixed cost up front, before choosing a `token_budget`:
+
+```python
+from okf_agents.navigator import index_token_cost
+
+floor = index_token_cost(bundle)          # e.g. 173
+navigator = create_okf_navigator(bundle, model, token_budget=floor + 2000)
+```
+
+A `token_budget` set exactly to `index_token_cost(bundle)` is valid and
+meaningful: the index is read, but no concept read can ever fit, so the
+graph answers from the index alone (`plan` is skipped entirely, matching
+`max_hops=0` and `max_concepts=0`'s "index-only" behavior). `OKFBundle.index()`
+is a cheap deep-copy of a value computed once at bundle load time, so
+calling `index_token_cost` costs nothing extra beyond the estimator call.
+
 Model calls are similarly bounded: at most one `plan` call, one
 `generate` call, and — in `progressive` mode only — one `decide` call per
 additional read round. `exhaustive` mode never calls the model to decide
 whether to keep going. No model call is ever retried; a model exception
 propagates to the caller instead of being swallowed.
 
-## Malformed model output never breaks traversal
+## Malformed model output never breaks traversal — and never fails open
 
-If the model's `plan` or `decide` response is not valid JSON, or names no
-concept IDs the bundle actually has, the navigator falls back to
-deterministic behavior instead of guessing or crashing:
+If the model's `plan`, `decide`, or `generate` response doesn't parse
+into its expected schema, the navigator fails **closed**, not open: it
+never guesses its way into reading more than the model actually
+justified, and it never leaves callers unable to tell that something
+went wrong.
 
-- A malformed or empty **plan** falls back to the bundle's lexical
-  `search()` over the question, capped at `max_concepts`.
-- A malformed **decide** response terminates traversal and moves to
-  `generate`, using whatever context has been read so far.
+- A **plan** response that doesn't parse, doesn't match the expected
+  shape (e.g. `concept_ids` isn't a list), or names no concept ID the
+  bundle actually has (empty list, or every ID unknown) reads nothing
+  that round. The graph proceeds straight to `generate` with just the
+  index, the same way it would if `max_hops=0`. It does **not** fall
+  back to a lexical search over the whole bundle — a single bad `plan`
+  response can no longer cause the navigator to read all the way up to
+  `max_concepts` on faith.
+- A malformed **decide** response terminates traversal the same way it
+  always has: it moves straight to `generate`, using whatever context
+  has been read so far.
 - Citations the model invents that were never actually read are
-  silently dropped: `citations` is always a subset of `visited`.
+  silently dropped: `citations` is always a subset of `visited`. This one
+  case is deliberately silent, not flagged — a citation being filtered
+  out is a normal, expected outcome of validating against `visited`, not
+  evidence the model's output was malformed.
+- Whenever `plan`, `decide`, or `generate`'s response actually fails
+  schema validation (as opposed to parsing fine but naming nothing
+  useful), the returned state records it:
+  - `degraded: bool` — `True` if any step failed validation during the
+    run, `False` otherwise.
+  - `degraded_steps: list[str]` — the ordered names of the steps that
+    failed (`"plan"`, `"decide"`, `"generate"`), empty when nothing did.
+
+  In particular, when `generate`'s response fails to parse, `answer`
+  still contains the model's raw text (unchanged from before) and
+  `citations` is `[]`, but now `degraded` is `True` and
+  `degraded_steps` includes `"generate"` — so a caller can tell "this is
+  a real grounded answer" from "the model returned garbage and this is
+  that garbage verbatim" without guessing from `citations == []` alone
+  (an empty-but-valid answer also has no citations).
+
+```python
+result = navigator.invoke({"question": "..."})
+if result["degraded"]:
+    # result["answer"] may be unparsed model text rather than a
+    # validated, cited answer — decide how to surface that to your
+    # caller/UI; result["degraded_steps"] says which step(s) failed.
+    ...
+```
 
 This means a flaky or unhelpful model degrades traversal quality but
-never produces an exception, an infinite loop, or a citation pointing at
-a concept the navigator never read.
+never produces an exception, an infinite loop, a citation pointing at a
+concept the navigator never read, or a silent, indistinguishable
+garbage-in-garbage-out answer.
 
 ## Embedding the navigator in a larger graph
 
