@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Raised the declared `langgraph` floor from `>=0.2` to `>=0.2.71`. The
+  literal `0.2` floor was never actually installable against this
+  package's own `langchain-core>=0.3` requirement, and even a resolvable
+  pre-0.2.71 `langgraph` fails at import (`langgraph.types.Command` and
+  `StateGraph.add_node(..., destinations=...)` don't exist yet). `0.2.71`
+  is the real, verified floor.
+
 ## [0.2.0] - 2026-07-16
 
 ### Added

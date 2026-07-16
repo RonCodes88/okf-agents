@@ -224,7 +224,8 @@ stack.
 ## Compatibility
 
 - Python 3.11, 3.12, 3.13
-- `langgraph` >= 0.2, `langchain-core` >= 0.3, `pydantic` >= 2.0
+- `langgraph` >= 0.2.71, `langchain-core` >= 0.3, `pydantic` >= 2.0
+  (tested through `langgraph` 1.2.x and `langchain-core` 1.4.x)
 
 Full API reference: [docs/api-reference.md](docs/api-reference.md) &nbsp;|&nbsp;
 Optional extras and dev setup: [docs/testing.md](docs/testing.md)
